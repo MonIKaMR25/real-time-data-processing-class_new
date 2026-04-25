@@ -1,4 +1,5 @@
 FROM redpandadata/redpanda:v24.2.7 AS redpanda
+FROM clickhouse/clickhouse-server:24.10 AS clickhouse
 
 FROM python:3.13-slim
 
@@ -12,12 +13,10 @@ RUN apt-get update && apt-get install -y \
     curl ca-certificates libnuma1 libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# ClickHouse single statically-linked binary; non-interactive without a TTY
-WORKDIR /tmp
-RUN curl -fsSL https://clickhouse.com/ | sh \
-    && mv ./clickhouse /usr/local/bin/clickhouse
+# ClickHouse binary pinned to 24.10 (matches docker-compose)
+COPY --from=clickhouse /usr/bin/clickhouse /usr/local/bin/clickhouse
 
-RUN mkdir -p /var/lib/redpanda /var/lib/clickhouse /var/log/clickhouse-server
+RUN mkdir -p /var/lib/redpanda/data /var/lib/clickhouse /var/log/clickhouse-server
 
 RUN pip install uv
 

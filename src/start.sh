@@ -2,12 +2,14 @@
 
 log() { echo "[demo] $*"; }
 
-# Start Redpanda
-redpanda start \
+# Start Redpanda (must use rpk wrapper — raw binary doesn't understand --kafka-addr)
+rpk redpanda start \
   --smp=1 --memory=512M --reserve-memory=0M --overprovisioned \
   --node-id=0 --check=false \
   --kafka-addr=PLAINTEXT://0.0.0.0:9092 \
-  --advertise-kafka-addr=PLAINTEXT://localhost:9092 &
+  --advertise-kafka-addr=PLAINTEXT://localhost:9092 \
+  --rpc-addr=0.0.0.0:33145 \
+  --advertise-rpc-addr=localhost:33145 &
 
 # Start ClickHouse
 clickhouse server &

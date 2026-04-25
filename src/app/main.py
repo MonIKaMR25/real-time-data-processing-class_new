@@ -27,6 +27,8 @@ CLICKHOUSE_PORT = int(os.environ.get("CLICKHOUSE_PORT", "8123"))
 TOPIC = "taps"
 
 STATE: dict = {"producer": None, "ch": None}
+_cached_metrics: str = "data: {}\n\n"
+_metrics_task: asyncio.Task | None = None
 
 
 @asynccontextmanager
@@ -36,9 +38,12 @@ async def lifespan(app: FastAPI):
     ch = clickhouse_connect.get_client(host=CLICKHOUSE_HOST, port=CLICKHOUSE_PORT)
     STATE["producer"] = producer
     STATE["ch"] = ch
+    global _metrics_task
+    _metrics_task = asyncio.create_task(_poll_metrics_loop())
     try:
         yield
     finally:
+        _metrics_task.cancel()
         await producer.stop()
         ch.close()
 
@@ -109,13 +114,21 @@ def query_metrics() -> dict:
     }
 
 
-async def metrics_stream():
+async def _poll_metrics_loop():
+    """Single background task: query ClickHouse once, cache for all SSE clients."""
+    global _cached_metrics
     while True:
         try:
             data = await asyncio.to_thread(query_metrics)
-            yield f"data: {json.dumps(data)}\n\n"
-        except Exception as e:  # keep stream alive on transient errors
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            _cached_metrics = f"data: {json.dumps(data)}\n\n"
+        except Exception as e:
+            _cached_metrics = f"data: {json.dumps({'error': str(e)})}\n\n"
+        await asyncio.sleep(0.5)
+
+
+async def metrics_stream():
+    while True:
+        yield _cached_metrics
         await asyncio.sleep(0.5)
 
 
