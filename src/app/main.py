@@ -98,9 +98,13 @@ def query_metrics() -> dict:
         """
     ).result_rows
 
+    tps_dict = {r[0].replace(tzinfo=timezone.utc).isoformat(): int(r[1]) for r in tps_rows}
+    tps_list = [{"sec": k, "n": v} for k, v in sorted(tps_dict.items())]
+
     return {
         "total": int(total),
-        "tps": [{"sec": r[0].isoformat(), "n": int(r[1])} for r in tps_rows],
+        "tps": tps_list,
+        "now": datetime.now(timezone.utc).isoformat(),
         "top": [{"session": r[0], "n": int(r[1])} for r in top_rows],
     }
 
