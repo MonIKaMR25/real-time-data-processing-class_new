@@ -88,6 +88,25 @@
     background-clip: text;
     color: transparent;
   }
+  .metrics-row {
+    display: flex;
+    align-items: baseline;
+    gap: 48px;
+  }
+  .p95 {
+    font-size: clamp(48px, 8vw, 100px);
+    font-weight: 800;
+    line-height: 0.9;
+    color: #00f5a0;
+    letter-spacing: -0.03em;
+  }
+  .p95-unit {
+    font-size: 14px;
+    opacity: 0.35;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
   .status {
     position: fixed;
     top: 16px; right: 16px;
@@ -116,8 +135,17 @@
 
   <div class="grid">
     <div>
-      <div class="label">Total taps</div>
-      <div class="total" id="total">0</div>
+      <div class="metrics-row">
+        <div>
+          <div class="label">Total taps</div>
+          <div class="total" id="total">0</div>
+        </div>
+        <div>
+          <div class="label">Latency p95</div>
+          <div class="p95" id="p95">&mdash;</div>
+          <div class="p95-unit">ms end-to-end</div>
+        </div>
+      </div>
 
       <div class="label" style="margin-top: 56px">Last 60 seconds</div>
       <div class="sparkline-wrap">
@@ -169,6 +197,13 @@
   function render(d) {
     if (d.error) return;
     totalEl.textContent = d.total.toLocaleString();
+
+    const p95El = document.getElementById("p95");
+    if (d.p95_ms != null) {
+      p95El.textContent = d.p95_ms.toLocaleString();
+    } else {
+      p95El.innerHTML = "&mdash;";
+    }
 
     // Build last 60 seconds using server's clock to avoid timezone issues
     const nowSec = Math.floor(new Date(d.now).getTime() / 1000);

@@ -139,7 +139,7 @@
     fetch("/api/tap", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sid }),
+      body: JSON.stringify({ session_id: sid, client_ts: Date.now() }),
     }).catch(() => {});
   });
 </script>
