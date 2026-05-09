@@ -520,7 +520,7 @@
         <h1 class="display-title reveal">How much can a<br>single OLTP node<br><em>handle?</em></h1>
         <p class="subtitle reveal" style="margin-top:clamp(0.5rem,1.2vh,1rem);">PostgreSQL internals. Load generation. Bottleneck analysis. Finding the wall.</p>
     </div>
-    <span class="slide-num">01 / 29</span>
+    <span class="slide-num">01 / 30</span>
 </section>
 
 <!-- ─── SLIDE 2 · WATCH IT DIE ───────────────────── -->
@@ -543,7 +543,7 @@
         </div>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.8rem,1.5vh,1.2rem);">500 connections &times; 50 MB = 25 GB. The container had 4.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">02 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">02 / 30</span>
 </section>
 
 <!-- ─── SLIDE 3 · AUTOPSY ────────────────────────── -->
@@ -564,7 +564,7 @@
             <span class="callout-text">No graceful shutdown. No WAL (Write-Ahead Log) flush. In-flight work is <strong>lost</strong>. This happens in production.</span>
         </div>
     </div>
-    <span class="slide-num">03 / 29</span>
+    <span class="slide-num">03 / 30</span>
 </section>
 
 <!-- ─── SLIDE 4 · WHAT IS A CONNECTION? ──────────── -->
@@ -592,7 +592,7 @@
             <span class="callout-text">This is why <code>pgbouncer</code> exists. Connection pooling isn't optional at scale.</span>
         </div>
     </div>
-    <span class="slide-num">04 / 29</span>
+    <span class="slide-num">04 / 30</span>
 </section>
 
 <!-- ─── SLIDE 5 · SEE THE BACKENDS ───────────────── -->
@@ -609,7 +609,7 @@
         </div>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Open 50 connections. Some idle, some active. Each one is a process.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">05 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">05 / 30</span>
 </section>
 
 <!-- ─── SLIDE 6 · THE WRITE PATH ─────────────────── -->
@@ -668,7 +668,7 @@
             <span class="callout-text">Five bottleneck points: <code>connections</code>, <code>WAL fsync</code>, <code>shared_buffers</code>, <code>MVCC/vacuum</code>, <code>locks</code>. We'll hit each one today.</span>
         </div>
     </div>
-    <span class="slide-num">06 / 29</span>
+    <span class="slide-num">06 / 30</span>
 </section>
 
 <!-- ─── SLIDE 7 · THE FSYNC WALL ─────────────────── -->
@@ -696,7 +696,7 @@
             <span class="callout-text">This is typically the <strong>first</strong> bottleneck you'll hit. The disk becomes the serialization point.</span>
         </div>
     </div>
-    <span class="slide-num">07 / 29</span>
+    <span class="slide-num">07 / 30</span>
 </section>
 
 <!-- ─── SLIDE 8 · DEMO: NAIVE LOADER ─────────────── -->
@@ -717,7 +717,7 @@
         </div>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Expected: <strong style="color:var(--warm);">~2,000 TPS</strong>. The fsync wall in action.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">08 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">08 / 30</span>
 </section>
 
 <!-- ─── SLIDE 9 · GROUP COMMIT ────────────────────── -->
@@ -773,7 +773,7 @@
             <text class="zone-label" x="230" y="50">degrade</text>
         </svg>
     </div>
-    <span class="slide-num">09 / 29</span>
+    <span class="slide-num">09 / 30</span>
 </section>
 
 <!-- ─── SLIDE 10 · DEMO: ASYNC LOADER ────────────── -->
@@ -791,7 +791,7 @@
         </div>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Group commit kicks in. Same disk, but fewer fsyncs per transaction.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">10 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">10 / 30</span>
 </section>
 
 <!-- ─── SLIDE 11 · TRANSITION: FASTER? ────────── -->
@@ -801,7 +801,7 @@
         <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Can we go faster &mdash;<br><em style="color:var(--gold);">without losing data?</em></h2>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">Group commit helped. But fsync is still the bottleneck.<br>Two options: skip it, or batch around it.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">11 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">11 / 30</span>
 </section>
 
 <!-- ─── SLIDE 12 · SYNCHRONOUS_COMMIT OFF ──────────── -->
@@ -878,7 +878,7 @@
             <span class="callout-text">Don't believe it? <code>demo_sync_loss.py</code> inserts rows, crashes the container, and counts what's missing. Real proof.</span>
         </div>
     </div>
-    <span class="slide-num">12 / 29</span>
+    <span class="slide-num">12 / 30</span>
 </section>
 
 <!-- ─── SLIDE 13 · DEMO: NO-SYNC ─────────────────── -->
@@ -895,7 +895,7 @@
         </div>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">The fsync brake is off. Faster &mdash; but at a price.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">13 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">13 / 30</span>
 </section>
 
 <!-- ─── SLIDE 14 · BATCHING: COPY PROTOCOL ───────── -->
@@ -965,7 +965,7 @@
             <span class="callout-text">Batching is <strong>free</strong> &mdash; no durability trade-off. Just fewer operations per commit.</span>
         </div>
     </div>
-    <span class="slide-num">14 / 29</span>
+    <span class="slide-num">14 / 30</span>
 </section>
 
 <!-- ─── SLIDE 15 · DEMO: COPY ─────────────────────── -->
@@ -976,24 +976,42 @@
         <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
             <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
             <div class="code-body"><span class="v">$</span> uv run python experiment_batch.py
+<span class="c"># single connection throughout</span>
 
 <span class="c"># executemany  &rarr; ~30k TPS</span>
 <span class="c"># COPY         &rarr; ~100k+ TPS</span>
 <span class="c"># vs naive     &rarr; 53&times; improvement</span></div>
         </div>
-        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Same hardware. Same table. 53&times; faster. Just fewer round-trips.</p>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">One connection &mdash; no parallelism, no tricks. 53&times; faster than naive. Just fewer fsyncs.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">15 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">15 / 30</span>
 </section>
 
-<!-- ─── SLIDE 16 · TRANSITION: WHAT BREAKS NEXT? ── -->
+<!-- ─── SLIDE 16 · DEMO: PARALLEL COPY ──────────── -->
+<section class="slide" id="slide-13b" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; experiment_parallel_copy.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Parallel COPY: <em style="color:var(--warm);">not linear</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+            <div class="code-body"><span class="v">$</span> uv run python experiment_parallel_copy.py -c <span class="g">1</span>  <span class="c">#  133k TPS   1.0&times;</span>
+<span class="v">$</span> uv run python experiment_parallel_copy.py -c <span class="g">4</span>  <span class="c">#  200k TPS   1.5&times;</span>
+<span class="v">$</span> uv run python experiment_parallel_copy.py -c <span class="g">8</span>  <span class="c">#  400k TPS   3.0&times;</span>
+<span class="c"># disjoint rows &mdash; no contention</span></div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Real scaling &mdash; but sublinear. The WAL insert lock is still a serial fraction. Amdahl&rsquo;s Law applies even here.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">16 / 30</span>
+</section>
+
+<!-- ─── SLIDE 17 · TRANSITION: WHAT BREAKS NEXT? ── -->
 <section class="slide hour-divider" id="slide-trans-2" style="background:var(--charcoal);">
     <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
         <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">~2k → ~108k TPS</div>
         <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Fsync: <em style="color:var(--sage);">solved.</em><br>What breaks next?</h2>
-        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">We've eliminated the I/O bottleneck. Now the enemy is contention.</p>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">Parallel COPY scales &mdash; but the WAL lock caps it at ~3&times; for 8 workers. Now meet a bottleneck where the serial fraction is <em style="color:var(--warm);">100%</em>.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">16 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">17 / 30</span>
 </section>
 
 <!-- ─── SLIDE 17 · AMDAHL'S LAW ──────────────────── -->
@@ -1017,7 +1035,7 @@
             <span class="callout-text">This explains why connections past the sweet spot <strong>degrade</strong> performance. More overhead, same serial fraction.</span>
         </div>
     </div>
-    <span class="slide-num">17 / 29</span>
+    <span class="slide-num">18 / 30</span>
 </section>
 
 <!-- ─── SLIDE 18 · HOT ROW THEORY ────────────────── -->
@@ -1043,7 +1061,7 @@
             <span class="callout-text">Solutions are <strong>architectural</strong>: optimistic locking, sharding the hot row, queuing updates. You can't buy your way out.</span>
         </div>
     </div>
-    <span class="slide-num">18 / 29</span>
+    <span class="slide-num">19 / 30</span>
 </section>
 
 <!-- ─── SLIDE 19 · DEMO: HOT ROW + LOCK WAITS ───── -->
@@ -1060,7 +1078,7 @@
         </div>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">50 connections, worse TPS than 1 connection with COPY. Contention dominates.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">19 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">20 / 30</span>
 </section>
 
 <!-- ─── SLIDE 20 · TRANSITION: HIDDEN COSTS ─────── -->
@@ -1070,7 +1088,7 @@
         <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">The <em style="color:var(--plum);">hidden costs</em></h2>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">TPS looks fine. But where is your RAM going?<br>And what is MVCC quietly doing to your table?</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">20 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">21 / 30</span>
 </section>
 
 <!-- ─── SLIDE 21 · SHARED BUFFERS ──────────────────── -->
@@ -1090,7 +1108,7 @@
             <span class="callout-text">For write-heavy workloads: if checkpoint I/O spikes, your write latency spikes. The checkpointer writes dirty pages from <code>shared_buffers</code> to disk.</span>
         </div>
     </div>
-    <span class="slide-num">21 / 29</span>
+    <span class="slide-num">22 / 30</span>
 </section>
 
 <!-- ─── SLIDE 22 · DEMO: BUFFER POOL ─────────────── -->
@@ -1110,7 +1128,7 @@
         </div>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.6rem,1.2vh,0.9rem);">See which tables and indexes occupy the most 8 KB pages.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">22 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">23 / 30</span>
 </section>
 
 <!-- ─── SLIDE 23 · MVCC & DEAD TUPLES ────────────── -->
@@ -1170,7 +1188,7 @@
             <li>Autovacuum defaults are <strong>conservative</strong> &mdash; writes can outpace it</li>
         </ul>
     </div>
-    <span class="slide-num">23 / 29</span>
+    <span class="slide-num">24 / 30</span>
 </section>
 
 <!-- ─── SLIDE 24 · DEMO: VACUUM ──────────────────── -->
@@ -1190,7 +1208,7 @@
         </div>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Disable autovacuum. Run 100k UPDATEs. Watch dead tuples pile up. VACUUM to reclaim.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">24 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">25 / 30</span>
 </section>
 
 <!-- ─── SLIDE 25 · TRANSITION: SYNTHESIS ──────── -->
@@ -1200,7 +1218,7 @@
         <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Putting it <em style="color:var(--warm);">all together</em></h2>
         <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">Connections. WAL. Buffers. MVCC. Locks.<br>One benchmark to rule them all.</p>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">25 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">26 / 30</span>
 </section>
 
 <!-- ─── SLIDE 26 · INSTRUMENT EVERYTHING ─────────── -->
@@ -1234,7 +1252,7 @@
             <span class="callout-text">All queries are in <code>instrument.sql</code>. Keep it open in another psql tab during every demo.</span>
         </div>
     </div>
-    <span class="slide-num">26 / 29</span>
+    <span class="slide-num">27 / 30</span>
 </section>
 
 <!-- ─── SLIDE 27 · THE FULL PICTURE ──────────────── -->
@@ -1251,10 +1269,11 @@
   Async (50 conns)          <span class="g">16,617</span>     8.2&times;
   Async (50, sync=off)      <span class="g">17,768</span>     8.8&times;
   COPY (batch=1000)        <span class="g">108,829</span>    53.7&times;
+  COPY (4 parallel)        <span class="g">199,712</span>    98.5&times;
   Hot row (50 conns)         <span class="g">2,789</span>     1.4&times;</div>
         </div>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">27 / 29</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">28 / 30</span>
 </section>
 
 <!-- ─── SLIDE 28 · CIRCLE BACK ───────────────────── -->
@@ -1275,7 +1294,7 @@
             <span class="callout-text">From 2k to 108k TPS on the same hardware. The only thing that changed was <strong>how</strong> we talked to the database.</span>
         </div>
     </div>
-    <span class="slide-num">28 / 29</span>
+    <span class="slide-num">29 / 30</span>
 </section>
 
 <!-- ─── SLIDE 29 · WHAT'S NEXT ───────────────────── -->
@@ -1292,7 +1311,7 @@
             <span class="callout-text">Spoiler: distribution doesn't give you 10&times;. It gives you fault tolerance and horizontal scale &mdash; at a <strong>latency cost</strong>. You'll measure exactly how much.</span>
         </div>
     </div>
-    <span class="slide-num">29 / 29</span>
+    <span class="slide-num">30 / 30</span>
 </section>
 
 <!-- ─── ANNEX · SETUP ─────────────────────────────── -->
