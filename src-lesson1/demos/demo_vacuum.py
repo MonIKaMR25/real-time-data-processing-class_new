@@ -23,18 +23,27 @@ import asyncpg
 DSN = "postgresql://bench:bench@localhost:5432/bench"
 
 
-async def run(seed_rows: int, update_count: int) -> None:
+async def run(seed_rows: int, update_count: int, reset: bool) -> None:
     pool = await asyncpg.create_pool(DSN, min_size=10, max_size=10)
 
     print("Demo — Dead tuple accumulation & VACUUM")
     print("-" * 60)
 
-    # Step 1: Disable autovacuum
+    # Step 1: Optional reset — clean slate for repeated runs
+    if reset:
+        print("  Resetting: VACUUM FULL + truncate orders...")
+        async with pool.acquire() as conn:
+            await conn.execute("ALTER TABLE orders SET (autovacuum_enabled = true)")
+            await conn.execute("TRUNCATE orders")
+            await conn.execute("VACUUM FULL orders")
+        print("  ✓ Table reset\n")
+
+    # Step 2: Disable autovacuum
     async with pool.acquire() as conn:
         await conn.execute("ALTER TABLE orders SET (autovacuum_enabled = false)")
     print("  ✓ Autovacuum disabled on orders table\n")
 
-    # Step 2: Seed rows if needed
+    # Step 3: Seed rows if needed
     async with pool.acquire() as conn:
         count = await conn.fetchval("SELECT count(*) FROM orders")
     if count < seed_rows:
@@ -101,7 +110,8 @@ async def run(seed_rows: int, update_count: int) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Demo — vacuum and dead tuples")
-    parser.add_argument("--rows", "-n", type=int, default=50_000)
-    parser.add_argument("--updates", "-u", type=int, default=100_000)
+    parser.add_argument("--rows", "-n", type=int, default=200_000)
+    parser.add_argument("--updates", "-u", type=int, default=500_000)
+    parser.add_argument("--reset", action="store_true", help="VACUUM FULL + truncate before seeding")
     args = parser.parse_args()
-    asyncio.run(run(args.rows, args.updates))
+    asyncio.run(run(args.rows, args.updates, args.reset))

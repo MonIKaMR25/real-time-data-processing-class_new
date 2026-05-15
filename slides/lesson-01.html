@@ -1390,6 +1390,46 @@
     <span class="slide-num">Annex</span>
 </section>
 
+<!-- ─── ANNEX · TECH STACK ─────────────────────────── -->
+<section class="slide" id="slide-annex-2">
+    <div class="geo-accent geo-circle" style="top:8%;right:6%;width:180px;height:180px;opacity:0.04;"></div>
+    <div class="slide-content" style="max-width:min(90vw,950px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Annex</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Tech stack &mdash; <em>why each thing</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.6rem,1.2vh,1rem);flex:unset;gap:clamp(1rem,2vw,2rem);">
+            <div class="col" style="display:flex;flex-direction:column;gap:clamp(0.5rem,1vh,0.8rem);">
+                <div>
+                    <span class="col-label" style="color:var(--dusty-blue);">PostgreSQL</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">The industry default OLTP engine. We're not learning Postgres — we're using it to learn what <em>every</em> transactional database has to deal with.</p>
+                </div>
+                <div>
+                    <span class="col-label" style="color:var(--terracotta);">Redpanda</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Kafka-compatible, single binary, no JVM. Same API you'll use in production — without the ops overhead that would eat our lab time.</p>
+                </div>
+                <div>
+                    <span class="col-label" style="color:var(--plum);">PySpark</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Still the dominant batch processing framework in the industry. Python API, real distributed execution, runs fine on a laptop via local mode.</p>
+                </div>
+            </div>
+            <div class="col" style="display:flex;flex-direction:column;gap:clamp(0.5rem,1vh,0.8rem);">
+                <div>
+                    <span class="col-label" style="color:var(--sage);">PyFlink</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Exactly-once stateful stream processing — the hard version of the problem. PyFlink exposes the real mental model without hiding it behind abstractions.</p>
+                </div>
+                <div>
+                    <span class="col-label" style="color:var(--gold);">ClickHouse</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Columnar OLAP that actually runs on a laptop. Billion-row queries in seconds — makes the OLTP vs OLAP tradeoff impossible to ignore.</p>
+                </div>
+                <div>
+                    <span class="col-label" style="color:var(--dusty-blue);">Docker + uv</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Reproducible environments so we debug systems, not setups. <code>uv</code> installs in seconds — no one loses 20 minutes to pip.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">Annex</span>
+</section>
+
 <script>
     /* ===========================================
        SLIDE PRESENTATION CONTROLLER
