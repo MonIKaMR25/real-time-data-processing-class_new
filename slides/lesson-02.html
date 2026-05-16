@@ -558,8 +558,8 @@
 <!-- ─── SLIDE 7 · RAFT CONSENSUS ─────────────────── -->
 <section class="slide" id="slide-6">
     <div class="margin-def reveal" style="top:36%;">
-        <strong>Raft</strong>
-        A consensus algorithm designed to be understandable. Leader-based log replication with majority quorum.
+        <strong>Quorum</strong>
+        The minimum number of nodes that must acknowledge a write for it to be considered committed. For N nodes: &lfloor;N/2&rfloor;+1.
     </div>
     <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
         <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Consensus</div>
@@ -699,6 +699,10 @@
 
 <!-- ─── SLIDE 12 · 2PC BLOCKING PROBLEM ──────────── -->
 <section class="slide" id="slide-10">
+    <div class="margin-def reveal" style="top:38%;">
+        <strong>Blocking</strong>
+        A protocol is blocking if a single node failure can leave others unable to proceed &mdash; they must wait indefinitely for recovery.
+    </div>
     <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
         <div class="section-marker reveal" style="color:var(--terracotta);border-color:var(--terracotta);">The problem</div>
         <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">2PC is <em>blocking</em></h2>
