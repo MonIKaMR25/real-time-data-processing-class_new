@@ -4,6 +4,8 @@ services:
     container_name: lesson2-crdb-1
     hostname: crdb-1
     command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-1
+    cap_add:
+      - NET_ADMIN
     ports:
       - "26257:26257"   # SQL
       - "8080:8080"     # Admin UI
@@ -20,6 +22,8 @@ services:
     container_name: lesson2-crdb-2
     hostname: crdb-2
     command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-2
+    cap_add:
+      - NET_ADMIN
     ports:
       - "26258:26257"
       - "8081:8080"
@@ -36,6 +40,8 @@ services:
     container_name: lesson2-crdb-3
     hostname: crdb-3
     command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-3
+    cap_add:
+      - NET_ADMIN
     ports:
       - "26259:26257"
       - "8082:8080"
