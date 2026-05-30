@@ -595,7 +595,41 @@
             <span class="callout-text" style="color:rgba(255,255,255,0.75);">Removing Raft bought <strong style="color:var(--warm);">+30%</strong> &mdash; the disk was the bottleneck, not consensus. And you traded <strong style="color:var(--terracotta);">availability</strong>, not consistency: RF=1 is still linearizable (one copy is always current), but one dead node silences that shard entirely. This is exactly why Vitess and production sharding tools demand physically separate machines per shard.</span>
         </div>
     </div>
-    <span class="slide-num" style="color:rgba(255,255,255,0.3);">05 / 33</span>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">05 / 34</span>
+</section>
+
+
+<!-- ─── SLIDE 5b · WRITE BENCHMARK RESULTS ──────────── -->
+<section class="slide" id="slide-write-bench">
+    <div class="slide-content" style="max-width:min(90vw,820px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--terracotta);border-color:var(--terracotta);">Results</div>
+        <h2 class="reveal" style="margin-top:clamp(0.3rem,0.6vh,0.5rem);">The <em>honest</em> write comparison</h2>
+        <table class="latency-table reveal" style="max-width:760px;margin-top:clamp(0.3rem,0.6vh,0.5rem);">
+            <thead>
+                <tr><th>Workload</th><th style="text-align:right;">TPS</th><th style="text-align:right;">p50&nbsp;ms</th><th style="text-align:right;">p95&nbsp;ms</th></tr>
+            </thead>
+            <tbody>
+                <tr style="background:rgba(0,0,0,0.025);"><td colspan="4" style="font-weight:700;font-size:clamp(0.5rem,0.75vw,0.62rem);text-transform:uppercase;letter-spacing:0.07em;color:var(--text-secondary);padding-top:0.5rem;">Postgres &nbsp;&bull;&nbsp; 4 CPU / 8 GB (single node)</td></tr>
+                <tr><td>INSERT &middot; 50 conns</td><td style="font-family:var(--font-mono);text-align:right;">31,745</td><td style="font-family:var(--font-mono);text-align:right;">1.3</td><td style="font-family:var(--font-mono);text-align:right;">3.3</td></tr>
+                <tr><td>COPY &middot; 1 conn, batch=5k</td><td style="font-family:var(--font-mono);text-align:right;">263,594</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td></tr>
+                <tr><td>Hot row &middot; 50 conns</td><td style="font-family:var(--font-mono);text-align:right;">1,000</td><td style="font-family:var(--font-mono);text-align:right;">31.3</td><td style="font-family:var(--font-mono);text-align:right;">156.0</td></tr>
+                <tr style="background:rgba(0,0,0,0.025);"><td colspan="4" style="font-weight:700;font-size:clamp(0.5rem,0.75vw,0.62rem);text-transform:uppercase;letter-spacing:0.07em;color:var(--terracotta);padding-top:0.5rem;">CockroachDB RF=3 &nbsp;&bull;&nbsp; Raft on &nbsp;&bull;&nbsp; 3 &times; (2 CPU / 4 GB)</td></tr>
+                <tr style="color:var(--terracotta);"><td>INSERT &middot; 50 conns</td><td style="font-family:var(--font-mono);text-align:right;">4,099</td><td style="font-family:var(--font-mono);text-align:right;">8.0</td><td style="font-family:var(--font-mono);text-align:right;">24.3</td></tr>
+                <tr style="color:var(--terracotta);"><td>COPY &middot; 1 conn, batch=5k</td><td style="font-family:var(--font-mono);text-align:right;">9,860</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td></tr>
+                <tr style="color:var(--terracotta);"><td>Hot row &middot; local range</td><td style="font-family:var(--font-mono);text-align:right;">103</td><td style="font-family:var(--font-mono);text-align:right;">334</td><td style="font-family:var(--font-mono);text-align:right;">1,234</td></tr>
+                <tr style="color:var(--terracotta);font-weight:600;"><td>Hot row &middot; cross-range 2PC</td><td style="font-family:var(--font-mono);text-align:right;">43</td><td style="font-family:var(--font-mono);text-align:right;">887</td><td style="font-family:var(--font-mono);text-align:right;">1,804</td></tr>
+                <tr style="background:rgba(0,0,0,0.025);"><td colspan="4" style="font-weight:700;font-size:clamp(0.5rem,0.75vw,0.62rem);text-transform:uppercase;letter-spacing:0.07em;color:var(--sage);padding-top:0.5rem;">CockroachDB RF=1 &nbsp;&bull;&nbsp; Raft off &nbsp;&bull;&nbsp; 3 shards, 1 per node</td></tr>
+                <tr><td>INSERT &middot; 50 conns (3 shards)</td><td style="font-family:var(--font-mono);text-align:right;">4,903</td><td style="font-family:var(--font-mono);text-align:right;">7.8</td><td style="font-family:var(--font-mono);text-align:right;">21.4</td></tr>
+                <tr><td>COPY &middot; 3 conns, 1 per shard</td><td style="font-family:var(--font-mono);text-align:right;">35,268</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td></tr>
+                <tr style="color:var(--sage);font-weight:600;"><td>Hot row &middot; 3 independent rows</td><td style="font-family:var(--font-mono);text-align:right;">1,757</td><td style="font-family:var(--font-mono);text-align:right;">26.2</td><td style="font-family:var(--font-mono);text-align:right;">40.7</td></tr>
+            </tbody>
+        </table>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.3rem,0.6vh,0.5rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">RF=3 hot-row collapses to <strong>43 TPS</strong> (2PC + serializable retries, p95 = 1.8 s). RF=1 hot-row <strong style="color:var(--sage);">beats Postgres: 1,757 TPS</strong> &mdash; three independent rows, one per shard, zero coordination. INSERT and COPY still lag: the bottleneck is CRDB&rsquo;s SQL layer, not Raft (removing Raft only bought +19% on INSERT). On production hardware with separate disks, the INSERT/COPY gap narrows; the hot-row story stays.</span>
+        </div>
+    </div>
+    <span class="slide-num">05b / 34</span>
 </section>
 
 
