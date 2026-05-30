@@ -210,9 +210,10 @@
         }
         .bullets li {
             font-family: var(--font-body); font-size: clamp(0.72rem, 1.2vw, 0.9rem);
-            color: var(--charcoal); display: flex; align-items: baseline; gap: 0.5rem; line-height: 1.4;
+            color: var(--charcoal); line-height: 1.4;
+            padding-left: 1.2em; text-indent: -1.2em;
         }
-        .bullets li::before { content: '\2014'; color: var(--warm); flex-shrink: 0; font-weight: 700; }
+        .bullets li::before { content: '\2014\00a0'; color: var(--warm); font-weight: 700; }
 
         .two-col {
             display: grid; grid-template-columns: 1fr 1fr;
@@ -459,12 +460,61 @@
             <li>CockroachDB&rsquo;s &ldquo;ranges&rdquo; ARE shards (auto-split at 512 MB)</li>
             <li>The cross-range experiment in L2 was sharding in disguise: disjoint key sets = independent contention domains</li>
         </ul>
-        <div class="arch-diagram reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">Shard A (users 1-1M)     Shard B (users 1M-2M)     Shard C (users 2M-3M)
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│  Node 1 (leader) │    │  Node 3 (leader) │    │  Node 5 (leader) │
-│  Node 2 (replica)│    │  Node 4 (replica)│    │  Node 6 (replica)│
-└──────────────────┘    └──────────────────┘    └──────────────────┘
-  independent writes      independent writes      independent writes</div>
+        <svg class="reveal" viewBox="0 0 640 175" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:min(90vw,660px);height:auto;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <style>
+                .sh-box { rx: 5; stroke-width: 1.5; }
+                .sh-leader { fill: rgba(198,93,42,0.08); stroke: var(--warm); }
+                .sh-replica { fill: rgba(0,0,0,0.03); stroke: var(--rule); stroke-dasharray: 4 3; }
+                .sh-title { font-family: var(--font-mono); font-size: 8px; fill: var(--charcoal); font-weight: 700; text-anchor: middle; }
+                .sh-sub { font-family: var(--font-mono); font-size: 6.5px; fill: var(--text-muted); text-anchor: middle; }
+                .sh-node { font-family: var(--font-mono); font-size: 7px; fill: var(--charcoal); text-anchor: middle; }
+                .sh-arrow { stroke: var(--sage); stroke-width: 1.5; marker-end: url(#sh-arr); }
+                .sh-arrow-lbl { font-family: var(--font-body); font-size: 7px; fill: var(--sage); font-weight: 600; text-anchor: middle; }
+            </style>
+            <defs>
+                <marker id="sh-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--sage)"/>
+                </marker>
+            </defs>
+
+            <!-- Shard A -->
+            <rect class="sh-box sh-leader" x="15" y="30" width="185" height="90"/>
+            <text class="sh-title" x="107" y="18">Shard A (users 1&ndash;1M)</text>
+            <rect x="30" y="45" width="80" height="24" rx="3" fill="var(--warm-dim)" stroke="var(--warm)" stroke-width="1"/>
+            <text class="sh-node" x="70" y="61">Node 1 (L)</text>
+            <rect x="30" y="80" width="80" height="24" rx="3" fill="var(--cream-dark)" stroke="var(--rule)" stroke-width="1"/>
+            <text class="sh-node" x="70" y="96">Node 2 (R)</text>
+            <line x1="110" y1="57" x2="130" y2="57" stroke="var(--text-muted)" stroke-width="0.8" stroke-dasharray="2 2"/>
+            <text style="font-family:var(--font-mono);font-size:5.5px;fill:var(--text-muted);" x="145" y="52">replicates</text>
+            <line x1="130" y1="57" x2="130" y2="92" stroke="var(--text-muted)" stroke-width="0.8" stroke-dasharray="2 2" marker-end="url(#sh-arr)"/>
+
+            <!-- Shard B -->
+            <rect class="sh-box sh-leader" x="225" y="30" width="185" height="90"/>
+            <text class="sh-title" x="317" y="18">Shard B (users 1M&ndash;2M)</text>
+            <rect x="240" y="45" width="80" height="24" rx="3" fill="var(--warm-dim)" stroke="var(--warm)" stroke-width="1"/>
+            <text class="sh-node" x="280" y="61">Node 3 (L)</text>
+            <rect x="240" y="80" width="80" height="24" rx="3" fill="var(--cream-dark)" stroke="var(--rule)" stroke-width="1"/>
+            <text class="sh-node" x="280" y="96">Node 4 (R)</text>
+
+            <!-- Shard C -->
+            <rect class="sh-box sh-leader" x="435" y="30" width="185" height="90"/>
+            <text class="sh-title" x="527" y="18">Shard C (users 2M&ndash;3M)</text>
+            <rect x="450" y="45" width="80" height="24" rx="3" fill="var(--warm-dim)" stroke="var(--warm)" stroke-width="1"/>
+            <text class="sh-node" x="490" y="61">Node 5 (L)</text>
+            <rect x="450" y="80" width="80" height="24" rx="3" fill="var(--cream-dark)" stroke="var(--rule)" stroke-width="1"/>
+            <text class="sh-node" x="490" y="96">Node 6 (R)</text>
+
+            <!-- Independent write arrows -->
+            <line class="sh-arrow" x1="107" y1="135" x2="107" y2="125"/>
+            <text class="sh-arrow-lbl" x="107" y="148">writes</text>
+            <line class="sh-arrow" x1="317" y1="135" x2="317" y2="125"/>
+            <text class="sh-arrow-lbl" x="317" y="148">writes</text>
+            <line class="sh-arrow" x1="527" y1="135" x2="527" y2="125"/>
+            <text class="sh-arrow-lbl" x="527" y="148">writes</text>
+
+            <!-- Bottom note -->
+            <text style="font-family:var(--font-body);font-size:8px;fill:var(--charcoal);font-weight:600;text-anchor:middle;" x="320" y="170">Each shard handles traffic independently &mdash; no coordination between shards</text>
+        </svg>
     </div>
     <span class="slide-num">03 / 38</span>
 </section>
@@ -705,17 +755,90 @@
         <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Physical layout</div>
         <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Column store: <em>DuckDB</em></h2>
         <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">Each column is stored contiguously. All 100M <code>fare_amount</code> values packed together, all <code>pickup_datetime</code> values together.</p>
-        <div class="arch-diagram reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);font-size:clamp(0.48rem,0.78vw,0.62rem);">Column: fare_amount           Column: pickup_datetime       Column: tip_amount
-┌───────────────────────┐   ┌───────────────────────┐   ┌───────────────────────┐
-│ 12.50                 │   │ 2023-01-15 08:32:00   │   │ 2.50                  │
-│ 8.00                  │   │ 2023-01-15 08:33:12   │   │ 0.00                  │
-│ 24.75                 │   │ 2023-01-15 08:34:45   │   │ 5.00                  │
-│ 15.00                 │   │ 2023-01-15 08:35:01   │   │ 3.00                  │
-│ ...  (100M values)    │   │ ...  (100M values)    │   │ ...  (100M values)    │
-└───────────────────────┘   └───────────────────────┘   └───────────────────────┘
-    ↑ READ THIS              ↑ READ THIS                  ↑ SKIP (not needed)
-    
-14 other columns: NEVER TOUCHED</div>
+        <svg class="reveal" viewBox="0 0 680 200" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:min(90vw,700px);height:auto;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <style>
+                .col-seg-read { fill: var(--sage); rx: 2; }
+                .col-seg-skip { fill: #ddd8d0; rx: 2; }
+                .col-lbl { font-family: var(--font-mono); font-size: 7px; fill: var(--charcoal); text-anchor: middle; font-weight: 600; }
+                .col-val { font-family: var(--font-mono); font-size: 6px; fill: #fff; text-anchor: middle; }
+                .col-val-skip { font-family: var(--font-mono); font-size: 6px; fill: var(--text-muted); text-anchor: middle; }
+                .col-note { font-family: var(--font-body); font-size: 8px; fill: var(--text-secondary); text-anchor: middle; }
+                .col-action { font-family: var(--font-mono); font-size: 7px; font-weight: 700; text-anchor: middle; }
+            </style>
+
+            <!-- Column headers -->
+            <text class="col-lbl" x="50" y="14">vendor</text>
+            <text class="col-lbl" x="100" y="14" style="fill:var(--sage);">pickup</text>
+            <text class="col-lbl" x="155" y="14">dropoff</text>
+            <text class="col-lbl" x="205" y="14">pax</text>
+            <text class="col-lbl" x="250" y="14">dist</text>
+            <text class="col-lbl" x="300" y="14" style="fill:var(--sage);">fare</text>
+            <text class="col-lbl" x="345" y="14" style="fill:var(--sage);">tip</text>
+            <text class="col-lbl" x="390" y="14">tolls</text>
+            <text class="col-lbl" x="435" y="14">total</text>
+            <text class="col-lbl" x="480" y="14">surcharge</text>
+            <text class="col-lbl" x="530" y="14">airport</text>
+            <text class="col-lbl" x="575" y="14">rate</text>
+            <text class="col-lbl" x="620" y="14">pay_type</text>
+
+            <!-- 13 column segments as vertical strips (rows of values stacked) -->
+            <!-- Skipped columns -->
+            <rect class="col-seg-skip" x="30" y="22" width="40" height="120"/>
+            <text class="col-val-skip" x="50" y="42">1</text><text class="col-val-skip" x="50" y="58">2</text><text class="col-val-skip" x="50" y="74">1</text><text class="col-val-skip" x="50" y="90">2</text><text class="col-val-skip" x="50" y="106">1</text><text class="col-val-skip" x="50" y="125">...</text>
+
+            <!-- READ: pickup -->
+            <rect class="col-seg-read" x="78" y="22" width="44" height="120"/>
+            <text class="col-val" x="100" y="42">Jan 15</text><text class="col-val" x="100" y="58">Jan 15</text><text class="col-val" x="100" y="74">Jan 15</text><text class="col-val" x="100" y="90">Jan 16</text><text class="col-val" x="100" y="106">Jan 16</text><text class="col-val" x="100" y="125">...</text>
+
+            <!-- Skipped -->
+            <rect class="col-seg-skip" x="130" y="22" width="48" height="120"/>
+            <text class="col-val-skip" x="155" y="74">...</text>
+            <rect class="col-seg-skip" x="185" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="205" y="74">...</text>
+            <rect class="col-seg-skip" x="230" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="250" y="74">...</text>
+
+            <!-- READ: fare -->
+            <rect class="col-seg-read" x="276" y="22" width="44" height="120"/>
+            <text class="col-val" x="300" y="42">12.50</text><text class="col-val" x="300" y="58">8.00</text><text class="col-val" x="300" y="74">24.75</text><text class="col-val" x="300" y="90">15.00</text><text class="col-val" x="300" y="106">9.50</text><text class="col-val" x="300" y="125">...</text>
+
+            <!-- READ: tip -->
+            <rect class="col-seg-read" x="326" y="22" width="38" height="120"/>
+            <text class="col-val" x="345" y="42">2.50</text><text class="col-val" x="345" y="58">0.00</text><text class="col-val" x="345" y="74">5.00</text><text class="col-val" x="345" y="90">3.00</text><text class="col-val" x="345" y="106">1.50</text><text class="col-val" x="345" y="125">...</text>
+
+            <!-- Skipped columns -->
+            <rect class="col-seg-skip" x="370" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="390" y="74">...</text>
+            <rect class="col-seg-skip" x="415" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="435" y="74">...</text>
+            <rect class="col-seg-skip" x="460" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="480" y="74">...</text>
+            <rect class="col-seg-skip" x="508" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="528" y="74">...</text>
+            <rect class="col-seg-skip" x="553" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="575" y="74">...</text>
+            <rect class="col-seg-skip" x="598" y="22" width="44" height="120"/>
+            <text class="col-val-skip" x="620" y="74">...</text>
+
+            <!-- Action labels below -->
+            <text class="col-action" x="50" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="100" y="155" style="fill:var(--sage);">READ</text>
+            <text class="col-action" x="155" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="205" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="250" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="300" y="155" style="fill:var(--sage);">READ</text>
+            <text class="col-action" x="345" y="155" style="fill:var(--sage);">READ</text>
+            <text class="col-action" x="390" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="435" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="480" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="528" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="575" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="620" y="155" style="fill:var(--text-muted);">SKIP</text>
+
+            <!-- Summary -->
+            <rect x="180" y="170" width="300" height="22" fill="var(--sage-dim)" rx="3" stroke="var(--sage)" stroke-width="0.8"/>
+            <text style="font-family:var(--font-body);font-size:9px;fill:var(--sage);font-weight:600;" x="330" y="185" text-anchor="middle">Read 3 columns. Skip 14. Disk I/O reduced ~6&times;.</text>
+        </svg>
         <div class="callout callout-win reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
             <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
             <span class="callout-text">Need 3 of 17 columns? Read <strong>only those 3</strong>. The other 14 are never loaded from disk. That&rsquo;s the I/O reduction right there.</span>
@@ -829,14 +952,69 @@
         <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Columnar advantage #4</div>
         <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Zone maps: <em>skip before reading</em></h2>
         <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">Each row group stores lightweight metadata: min, max, null count per column.</p>
-        <div class="arch-diagram reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);font-size:clamp(0.48rem,0.78vw,0.62rem);">Query: WHERE pickup_datetime >= '2023-06-01' AND < '2023-09-01'
+        <svg class="reveal" viewBox="0 0 620 200" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:min(90vw,640px);height:auto;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <style>
+                .zm-rg { rx: 4; stroke-width: 1.2; }
+                .zm-skip { fill: rgba(0,0,0,0.04); stroke: var(--rule); }
+                .zm-scan { fill: var(--sage-dim); stroke: var(--sage); stroke-width: 1.5; }
+                .zm-lbl { font-family: var(--font-mono); font-size: 7.5px; fill: var(--charcoal); font-weight: 600; }
+                .zm-meta { font-family: var(--font-mono); font-size: 6.5px; fill: var(--text-secondary); }
+                .zm-status { font-family: var(--font-mono); font-size: 7px; font-weight: 700; }
+                .zm-query { font-family: var(--font-mono); font-size: 8px; fill: var(--charcoal); }
+            </style>
 
-Row Group 1: pickup_datetime min=2023-01-02, max=2023-03-28  → SKIP ✗
-Row Group 2: pickup_datetime min=2023-03-28, max=2023-06-15  → SCAN (partial)
-Row Group 3: pickup_datetime min=2023-06-15, max=2023-09-02  → SCAN ✓
-Row Group 4: pickup_datetime min=2023-09-02, max=2023-12-31  → SKIP ✗
+            <!-- Query label -->
+            <text class="zm-query" x="10" y="14">WHERE pickup_datetime &gt;= <tspan style="fill:var(--sage);font-weight:700;">'2023-06-01'</tspan> AND &lt; <tspan style="fill:var(--sage);font-weight:700;">'2023-09-01'</tspan></text>
 
-Result: read 2 of 4 row groups → 50% I/O eliminated before touching data</div>
+            <!-- Filter window (background highlight) -->
+            <rect x="230" y="25" width="195" height="160" fill="rgba(90,122,94,0.06)" rx="6" stroke="var(--sage)" stroke-width="1" stroke-dasharray="5 3"/>
+            <text style="font-family:var(--font-body);font-size:6.5px;fill:var(--sage);font-weight:600;" x="328" y="36" text-anchor="middle">filter window</text>
+
+            <!-- Row Group 1 — SKIP -->
+            <rect class="zm-rg zm-skip" x="20" y="45" width="180" height="32"/>
+            <text class="zm-lbl" x="30" y="65">RG 1</text>
+            <text class="zm-meta" x="65" y="57">min: 2023-01-02</text>
+            <text class="zm-meta" x="65" y="69">max: 2023-03-28</text>
+            <text class="zm-status" x="175" y="65" style="fill:var(--text-muted);">SKIP &times;</text>
+
+            <!-- Row Group 2 — SCAN (partial overlap) -->
+            <rect class="zm-rg zm-scan" x="20" y="85" width="180" height="32"/>
+            <text class="zm-lbl" x="30" y="105">RG 2</text>
+            <text class="zm-meta" x="65" y="97">min: 2023-03-28</text>
+            <text class="zm-meta" x="65" y="109">max: 2023-06-15</text>
+            <text class="zm-status" x="175" y="105" style="fill:var(--sage);">SCAN &#10003;</text>
+
+            <!-- Row Group 3 — SCAN (full overlap) -->
+            <rect class="zm-rg zm-scan" x="20" y="125" width="180" height="32"/>
+            <text class="zm-lbl" x="30" y="145">RG 3</text>
+            <text class="zm-meta" x="65" y="137">min: 2023-06-15</text>
+            <text class="zm-meta" x="65" y="149">max: 2023-09-02</text>
+            <text class="zm-status" x="175" y="145" style="fill:var(--sage);">SCAN &#10003;</text>
+
+            <!-- Row Group 4 — SKIP -->
+            <rect class="zm-rg zm-skip" x="20" y="165" width="180" height="32"/>
+            <text class="zm-lbl" x="30" y="185">RG 4</text>
+            <text class="zm-meta" x="65" y="177">min: 2023-09-02</text>
+            <text class="zm-meta" x="65" y="189">max: 2023-12-31</text>
+            <text class="zm-status" x="175" y="185" style="fill:var(--text-muted);">SKIP &times;</text>
+
+            <!-- Timeline on the right showing the filter range -->
+            <line x1="430" y1="45" x2="430" y2="197" stroke="var(--rule)" stroke-width="1"/>
+            <!-- Month ticks -->
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--text-muted);" x="440" y="50">Jan</text>
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--text-muted);" x="440" y="80">Mar</text>
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--sage);font-weight:700;" x="440" y="108">Jun</text>
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--sage);font-weight:700;" x="440" y="140">Sep</text>
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--text-muted);" x="440" y="170">Dec</text>
+            <!-- Highlight bar for Jun-Sep -->
+            <rect x="436" y="100" width="4" height="42" fill="var(--sage)" rx="2"/>
+
+            <!-- Result summary -->
+            <rect x="470" y="90" width="140" height="50" fill="var(--cream-dark)" rx="4" stroke="var(--rule)" stroke-width="1"/>
+            <text style="font-family:var(--font-body);font-size:8px;fill:var(--charcoal);font-weight:700;" x="540" y="108" text-anchor="middle">Read 2 of 4 row groups</text>
+            <text style="font-family:var(--font-body);font-size:7.5px;fill:var(--sage);font-weight:600;" x="540" y="124" text-anchor="middle">50% I/O eliminated</text>
+            <text style="font-family:var(--font-body);font-size:6.5px;fill:var(--text-muted);" x="540" y="136" text-anchor="middle">before reading any data</text>
+        </svg>
         <div class="callout callout-win reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
             <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
             <span class="callout-text">Zone maps cost <strong>nothing at write time</strong> &mdash; just a few bytes of metadata. Compare to Postgres B-tree indexes, which must be maintained on every INSERT. Column stores optimize reads at zero write cost.</span>
