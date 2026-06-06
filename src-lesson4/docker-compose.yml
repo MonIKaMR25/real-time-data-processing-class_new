@@ -1,0 +1,124 @@
+services:
+  # ── OLTP source (reused pattern from Lesson 3) ──
+  # wal_level=logical so this same DB can feed Lesson 5's CDC demo unchanged.
+  postgres:
+    image: postgres:16
+    container_name: lesson4-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: bench
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: bench
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - shared_buffers=2GB
+      - -c
+      - work_mem=256MB
+      - -c
+      - max_connections=200
+      - -c
+      - wal_level=logical
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bench -d bench"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  # ── Pipeline runner: raw-python ETL (Hours 1-2) ──
+  # Shares ./data with Airflow + Dagster so all three write the same
+  # analytics.duckdb. DuckDB is single-writer — run one at a time.
+  runner:
+    build: .
+    container_name: lesson4-runner
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      DUCKDB_PATH: /workspace/data/analytics.duckdb
+    command: sleep infinity
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Airflow metadata DB (its own Postgres, isolated from the OLTP source) ──
+  airflow-meta:
+    image: postgres:16
+    container_name: lesson4-airflow-meta
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - airflowmeta:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  # ── Airflow 3.x (Hour 3): standalone = api-server + scheduler + dag-processor + triggerer ──
+  # Open http://localhost:8080 — SimpleAuthManager "all admins" (dev only) means
+  # no login prompt; whoever opens the UI is an admin. Don't do this in prod.
+  airflow:
+    build: ./airflow
+    container_name: lesson4-airflow
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-meta:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"  # dev: no-login UI
+      PG_HOST: postgres
+      DUCKDB_PATH: /opt/airflow/data/analytics.duckdb
+      STAGING_DIR: /opt/airflow/data/staging
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+      - airflowlogs:/opt/airflow/logs
+    command:
+      - bash
+      - -c
+      - |
+        airflow db migrate
+        exec airflow standalone
+    depends_on:
+      airflow-meta:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ── Dagster (Hour 3): dagster dev at http://localhost:3000 ──
+  dagster:
+    build: ./dagster_app
+    container_name: lesson4-dagster
+    ports:
+      - "3000:3000"
+    environment:
+      PG_HOST: postgres
+      DUCKDB_PATH: /app/data/analytics.duckdb
+      STAGING_DIR: /app/data/staging
+    volumes:
+      - ./dagster_app:/app/dagster_app
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  airflowmeta:
+  airflowlogs:

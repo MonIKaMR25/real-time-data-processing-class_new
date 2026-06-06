@@ -1,0 +1,9 @@
+[project]
+name = "lesson4-batch-etl"
+version = "0.1.0"
+description = "Lesson 4: Classical batch ETL — idempotency, SCD2, schema evolution, orchestration"
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb>=1.1.0",
+    "psycopg[binary]>=3.2.0",
+]
