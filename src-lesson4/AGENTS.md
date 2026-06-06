@@ -26,10 +26,11 @@ DuckDB target.
 ## How to run
 
 ```bash
-make up        # start stack            make seed       # populate source
-make prove     # idempotency proof      make failure    # crash + retry
-make scd2      # SCD2 demo              make schema-check
-./bench python src/<script>.py <args>   # arbitrary script in the runner
+docker compose up -d                              # start Postgres + Airflow + Dagster
+uv run python src/seed_data.py                    # populate the source
+uv run python src/prove_idempotent.py 2024-01-15  # idempotency proof
+uv run python src/<script>.py <args>              # any pipeline script (host, via uv)
+# no uv installed? docker compose exec runner python src/<script>.py
 ```
 
 ## Hard constraints (do not break)
@@ -56,6 +57,6 @@ make scd2      # SCD2 demo              make schema-check
 ## Gotchas
 
 - Airflow `catchup=False` on purpose (laptop-safe). Backfill a bounded range.
-- `make clean` drops the target; `docker compose down -v` also wipes the seeded
-  source and Airflow metadata.
+- Delete `data/analytics.duckdb` to drop the target; `docker compose down -v` also
+  wipes the seeded source and Airflow metadata.
 - The SCD2 merge is idempotent: a second `--merge` with no source change is a no-op.

@@ -187,6 +187,28 @@ hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
   font-size:clamp(0.42rem,0.65vw,0.52rem);color:var(--muted);opacity:0.5;z-index:200}
 @media(max-height:600px){.kbd-hint{display:none}}
 @media (prefers-reduced-motion:reduce){.reveal{transition-duration:.2s}html{scroll-behavior:auto}}
+
+/* ---- title (slide 1) opening animation ---- */
+@keyframes titleRise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes drawUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes knobSlide{from{left:0}to{left:80%}}
+@keyframes flowRow{0%{transform:translateX(0);opacity:0}14%,86%{opacity:.14}100%{transform:translateX(118vw);opacity:0}}
+.flow-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.flow-bg .frow{position:absolute;height:7px;border-radius:3px;background:var(--accent);opacity:0;animation:flowRow 2.6s var(--ease) forwards}
+#s1 .crumbs,#s1 .slide-content,#s1 hr.rule,#s1 .meta{position:relative;z-index:1}
+#s1 .reveal{opacity:0;animation:titleRise .85s var(--ease) forwards}
+#s1 .crumbs.reveal{animation-delay:.05s}
+#s1 .eyebrow.reveal{animation-delay:.25s}
+#s1 h1.reveal{animation-delay:.4s}
+#s1 .sub.reveal{animation-delay:.7s}
+#s1 .spectrum.reveal{animation-delay:1.05s}
+#s1 .t-data{position:relative;white-space:nowrap}
+#s1 .t-data::after{content:'';position:absolute;left:0;right:-.04em;bottom:.04em;height:.085em;background:var(--accent);transform:scaleX(0);transform-origin:left;animation:drawUnderline .7s var(--ease) 1.2s forwards}
+#s1 .spectrum .knob{left:0;animation:knobSlide 1.2s var(--ease) 1.25s forwards}
+@media (prefers-reduced-motion:reduce){
+  #s1 .reveal,.flow-bg .frow,#s1 .t-data::after,#s1 .spectrum .knob{animation:none}
+  #s1 .reveal{opacity:1;transform:none}#s1 .t-data::after{transform:scaleX(1)}#s1 .spectrum .knob{left:80%}
+}
 </style>
 </head>
 <body>
@@ -200,6 +222,13 @@ hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
 
 <!-- ─── 01 · TITLE ─────────────────────────────────────── -->
 <section class="slide visible" id="s1">
+  <div class="flow-bg" aria-hidden="true">
+    <span class="frow" style="top:23%;width:18%;left:-22%;animation-delay:.2s"></span>
+    <span class="frow" style="top:39%;width:13%;left:-22%;animation-delay:.75s"></span>
+    <span class="frow" style="top:58%;width:22%;left:-22%;animation-delay:.45s"></span>
+    <span class="frow" style="top:71%;width:11%;left:-22%;animation-delay:1.15s"></span>
+    <span class="frow" style="top:50%;width:16%;left:-22%;animation-delay:1.5s"></span>
+  </div>
   <div class="crumbs reveal">
     <span class="crumb">01 Storage</span>
     <span class="crumb">02 Distribute</span>
@@ -208,7 +237,7 @@ hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
   </div>
   <div class="slide-content">
     <div class="eyebrow reveal" style="margin-bottom:0.8rem;">On its messiest form</div>
-    <h1 class="reveal">Move the data.</h1>
+    <h1 class="reveal">Move the <span class="t-data">data</span>.</h1>
     <p class="sub reveal" style="margin-top:clamp(0.9rem,2vh,1.4rem);">Extract, transform, load. The naive version fits on a napkin &mdash; <span class="term">SELECT</span> here, <span class="term">INSERT</span> there. This lesson is everything the napkin forgot: a pipeline you can re-run, recover, and trust at 3&nbsp;AM.</p>
     <div class="spectrum reveal">
       <div class="axis"><span class="end">naive</span><div class="track"><span class="knob"></span></div><span class="end">correct</span></div>
@@ -713,21 +742,21 @@ duck.<span class="fn">execute</span>(<span class="s">"INSERT INTO daily_revenue 
   <div class="slide-content" style="max-width:min(92vw,860px);margin:0 auto;">
     <div class="section-marker reveal">Setup</div>
     <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">One command up. One source. One target.</h2>
-    <p class="sub reveal" style="margin-top:0.4rem;">Docker Compose brings up Postgres and a Python <span class="ink-mono">runner</span>. <span class="ink-mono">./bench</span> runs any script inside it; <span class="ink-mono">make</span> wraps the demos.</p>
+    <p class="sub reveal" style="margin-top:0.4rem;">Docker Compose brings up Postgres (and the orchestrators). Everything else is a plain Python script you run with <span class="ink-mono">uv</span> &mdash; no build tool to learn.</p>
     <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
       <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
-      <div class="code-body"><span class="v">$</span> make up        <span class="cm"># postgres + runner + airflow + dagster</span>
-<span class="v">$</span> make seed      <span class="cm"># 1M orders · 50k customers · 90 days</span>
-<span class="v">$</span> make prove     <span class="cm"># the idempotency proof (3 runs, identical)</span>
-<span class="v">$</span> ./bench python src/pipeline_idempotent.py 2024-01-15</span></div>
+      <div class="code-body"><span class="v">$</span> docker compose up -d                  <span class="cm"># postgres + airflow + dagster</span>
+<span class="v">$</span> uv run python src/seed_data.py        <span class="cm"># 1M orders · 50k · 90 days</span>
+<span class="v">$</span> uv run python src/prove_idempotent.py 2024-01-15
+<span class="v">$</span> uv run python src/pipeline_failure.py 2024-01-15 --fail-prob 0.4</div>
     </div>
     <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
-      <span class="ctxt"><span class="ink-mono">./bench &lt;cmd&gt;</span> is just <span class="ink-mono">docker compose exec runner &lt;cmd&gt;</span>. Everything runs the same on your host via <span class="ink-mono">uv run</span>. Drive it with <span class="ink-mono">opencode</span> &mdash; prompts in the annex.</span>
+      <span class="ctxt">Every demo is <span class="ink-mono">uv run python src/&lt;script&gt;.py</span> &mdash; <span class="ink-mono">uv</span> builds the venv and installs deps on first run. Drive it with <span class="ink-mono">opencode</span> &mdash; prompts in the annex.</span>
     </div>
   </div>
   <hr class="rule" style="margin-bottom:0.7rem;">
-  <div class="meta"><span>ENVIRONMENT</span><span>docker compose · bench · make</span><span>20 / 43</span></div>
+  <div class="meta"><span>ENVIRONMENT</span><span>docker compose &middot; uv run</span><span>20 / 43</span></div>
 </section>
 
 <!-- ─── 20 · SEED THE SOURCE ───────────────────────────── -->
@@ -741,7 +770,7 @@ duck.<span class="fn">execute</span>(<span class="s">"INSERT INTO daily_revenue 
       <div><div class="stat red">1.8s</div><div class="stat-label">558,886 orders/sec</div></div>
     </div>
     <div class="code-block reveal" style="margin-top:clamp(0.6rem,1.5vh,1rem);flex:unset;max-width:680px;">
-      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ make seed</span></div>
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/seed_data.py</span></div>
       <div class="code-body"><span class="cm">Seeding OLTP source (Postgres)...</span>
   customers: <span class="g">50,000</span>
   orders:    <span class="g">1,000,000</span> across 90 days from 2024-01-01
@@ -785,7 +814,7 @@ agg = duck.<span class="fn">execute</span>(<span class="s">"SELECT ?::DATE, stat
     <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">The naive load <em>grows</em>.</h2>
     <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">The load is a blind <span class="ink-mono">INSERT</span> loop &mdash; no DELETE, no key. Run the same day three times and watch the proof harness:</p>
     <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:660px;">
-      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ make prove-naive &middot; 2024-01-15 &middot; 11,169 orders</span></div>
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/prove_idempotent.py --loader naive</span></div>
       <div class="code-body"><span class="cm">run   rows   checksum</span>
  1     <span class="g">3</span>      b04a42b3c882
  2     <span class="r">6</span>      da58b0d4b47f
@@ -809,7 +838,7 @@ agg = duck.<span class="fn">execute</span>(<span class="s">"SELECT ?::DATE, stat
     <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Same inputs. <em>Same state.</em></h2>
     <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">Swap the blind INSERT for the <span class="ink-mono">DELETE + INSERT</span> in one transaction (slide 9). Re-run the same three times:</p>
     <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:620px;">
-      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ make prove &middot; delete-insert</span></div>
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/prove_idempotent.py 2024-01-15</span></div>
       <div class="code-body"><span class="cm">run   rows   checksum</span>
  1     3      <span class="n">b04a42b3c882</span>
  2     3      <span class="n">b04a42b3c882</span>
@@ -833,7 +862,7 @@ agg = duck.<span class="fn">execute</span>(<span class="s">"SELECT ?::DATE, stat
     <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Crash mid-load. Retry. <em>No corruption.</em></h2>
     <p class="sub reveal" style="margin-top:0.4rem;max-width:640px;">Inject a random crash inside the INSERT loop, wrap the load in a retry. Because the load is idempotent, retrying is <em>safe</em> &mdash; not a duplication machine.</p>
     <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
-      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ make failure &middot; fail-prob 0.4</span></div>
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/pipeline_failure.py --fail-prob 0.4</span></div>
       <div class="code-body">Attempt 1/8   <span class="r">FAILURE: crash after 1 of 3 rows &mdash; rolled back, target unchanged</span>
 Attempt 2/8   <span class="r">FAILURE: crash after 2 of 3 rows &mdash; rolled back, target unchanged</span>
 Attempt 3/8   <span class="n">Success on attempt 3 (3 rows)</span></div>
@@ -958,7 +987,7 @@ con.<span class="fn">execute</span>(<span class="r">"COMMIT"</span>)    <span cl
     </div>
     <div class="callout proof reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
-      <span class="ctxt"><span class="ink-mono">make scd2</span> moved 500 customers but reported <strong>changed=445</strong> &mdash; re-picking the same city is a no-op. The merge versions <em>real</em> diffs only, so a no-change re-run reports <strong>changed=0</strong>. Idempotent, like every load today.</span>
+      <span class="ctxt">The <span class="ink-mono">scd2.py</span> demo moved 500 customers but reported <strong>changed=445</strong> &mdash; re-picking the same city is a no-op. The merge versions <em>real</em> diffs only, so a no-change re-run reports <strong>changed=0</strong>. Idempotent, like every load today.</span>
     </div>
   </div>
   <hr class="rule" style="margin-bottom:0.7rem;">
@@ -972,7 +1001,7 @@ con.<span class="fn">execute</span>(<span class="r">"COMMIT"</span>)    <span cl
     <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Rename a column. <em>Fail loud.</em></h2>
     <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">Simulate an upstream dev renaming <span class="ink-mono">customer_id</span>. The contract check runs <em>before</em> a single row moves:</p>
     <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
-      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ make schema-drift</span></div>
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/schema_validate.py --simulate rename</span></div>
       <div class="code-body"><span class="cm">baseline                </span> <span class="n">OK  source schema matches the contract.</span>
 <span class="cm">rename customer_id → cust_id</span>
 <span class="cm">validate                </span> <span class="r">FAIL  missing column 'customer_id' (renamed or dropped upstream)</span>
@@ -1216,23 +1245,23 @@ con.<span class="fn">execute</span>(<span class="r">"COMMIT"</span>)</div>
     <div class="section-marker reveal" style="color:var(--muted);border-color:var(--rule-strong);">Annex &middot; commands</div>
     <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Run it yourself.</h2>
     <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
-      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">Makefile targets</span></div>
-      <div class="code-body"><span class="v">$</span> make up           <span class="cm"># postgres + runner + airflow + dagster</span>
-<span class="v">$</span> make seed         <span class="cm"># 1M orders · 50k customers · 90 days</span>
-<span class="v">$</span> make prove-naive  <span class="cm"># watch it duplicate (3 → 6 → 9)</span>
-<span class="v">$</span> make prove        <span class="cm"># identical checksum ×3</span>
-<span class="v">$</span> make failure      <span class="cm"># crash mid-load + retry</span>
-<span class="v">$</span> make watermark    <span class="cm"># multi-date load + atomic metadata</span>
-<span class="v">$</span> make scd2         <span class="cm"># move customer 42, keep history</span>
-<span class="v">$</span> make schema-drift <span class="cm"># rename a column → loud FAIL → reset</span></div>
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">the demos &middot; uv run</span></div>
+      <div class="code-body"><span class="v">$</span> docker compose up -d        <span class="cm"># postgres + airflow + dagster</span>
+<span class="v">$</span> uv run python src/seed_data.py
+<span class="v">$</span> uv run python src/prove_idempotent.py 2024-01-15 --loader naive   <span class="cm"># 3→6→9</span>
+<span class="v">$</span> uv run python src/prove_idempotent.py 2024-01-15                  <span class="cm"># identical ×3</span>
+<span class="v">$</span> uv run python src/pipeline_failure.py 2024-01-15 --fail-prob 0.4
+<span class="v">$</span> uv run python src/pipeline_watermark.py 2024-01-10 2024-01-20
+<span class="v">$</span> uv run python src/scd2.py --show 42       <span class="cm"># SCD2 history (full seq in README)</span>
+<span class="v">$</span> uv run python src/schema_validate.py --simulate rename</div>
     </div>
     <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
-      <span class="ctxt"><span class="ink-mono">./bench &lt;cmd&gt;</span> = <span class="ink-mono">docker compose exec runner &lt;cmd&gt;</span>. Or run on the host with <span class="ink-mono">uv run python src/&lt;file&gt;.py</span>. Airflow <span class="ink-mono">:8080</span> (no login) &middot; Dagster <span class="ink-mono">:3000</span>.</span>
+      <span class="ctxt">Every demo is <span class="ink-mono">uv run python src/&lt;file&gt;.py</span>; <span class="ink-mono">uv</span> builds the venv on first run. Multi-step demos (SCD2) are spelled out in the README. Airflow <span class="ink-mono">:8080</span> (no login) &middot; Dagster <span class="ink-mono">:3000</span>.</span>
     </div>
   </div>
   <hr class="rule" style="margin-bottom:0.7rem;">
-  <div class="meta"><span>ANNEX</span><span>docker compose &middot; bench &middot; make</span><span>40 / 43</span></div>
+  <div class="meta"><span>ANNEX</span><span>docker compose &middot; uv run</span><span>40 / 43</span></div>
 </section>
 
 <!-- ─── ANNEX · OPENCODE ──────────────────────────────── -->
@@ -1298,8 +1327,8 @@ con.<span class="fn">execute</span>(<span class="r">"COMMIT"</span>)</div>
     <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);max-width:700px;">
       <li><strong>DuckDB is single-writer.</strong> Runner, Airflow, Dagster share one file &mdash; run one writer at a time (that&rsquo;s why <span class="ink-mono">max_active_runs=1</span>).</li>
       <li><strong>Airflow <span class="ink-mono">catchup=False</span></strong> on purpose, so it won&rsquo;t backfill two years on a laptop. Use <span class="ink-mono">airflow backfill create --from-date --to-date</span> for a bounded range.</li>
-      <li><strong>Reset levels:</strong> <span class="ink-mono">make clean</span> drops the target; <span class="ink-mono">docker compose down -v</span> wipes the seed + Airflow metadata too.</li>
-      <li><strong>First <span class="ink-mono">make up</span> is slow</strong> &mdash; it builds three images and pulls Postgres ×2.</li>
+      <li><strong>Reset levels:</strong> delete <span class="ink-mono">data/analytics.duckdb</span> to drop the target; <span class="ink-mono">docker compose down -v</span> wipes the seed + Airflow metadata too.</li>
+      <li><strong>First <span class="ink-mono">docker compose up -d</span> is slow</strong> &mdash; it builds the images and pulls Postgres ×2.</li>
     </ul>
     <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>

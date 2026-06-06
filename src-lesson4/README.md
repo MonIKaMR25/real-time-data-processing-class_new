@@ -11,32 +11,41 @@ wrote by hand.
 
 ## Quick start
 
+Two tools only: **docker compose** to start the infra, **`uv run`** to run the
+Python scripts. No build tool to learn.
+
 ```bash
-# 1. Make sure OrbStack / Docker Desktop is running
-# 2. Build + start postgres, the pipeline runner, Airflow, and Dagster
-make up                       # == docker compose up -d --build
+# 1. Start the infra: Postgres + Airflow + Dagster (needs Docker / OrbStack)
+docker compose up -d
 
-# 3. Seed the OLTP source (1M orders over 90 days, 50k customers)
-make seed                     # == ./bench python src/seed_data.py
+# 2. Seed the OLTP source (1M orders over 90 days, 50k customers)
+uv run python src/seed_data.py
 
-# 4. Hour 2 — feel the pain, then fix it
-make prove-naive              # naive loader: row count GROWS each run (not idempotent)
-make prove                    # idempotent loader: identical checksum every run
-make failure                  # crash mid-load + retry → still exactly one correct result
-make watermark                # multi-date load with an atomic watermark
+# 3. Hour 2 — feel the pain, then fix it
+uv run python src/prove_idempotent.py 2024-01-15 --loader naive   # row count GROWS (not idempotent)
+uv run python src/prove_idempotent.py 2024-01-15                  # idempotent: identical checksum ×3
+uv run python src/pipeline_failure.py 2024-01-15 --fail-prob 0.4  # crash mid-load + retry → one result
+uv run python src/pipeline_watermark.py 2024-01-10 2024-01-20     # multi-date load + atomic watermark
 
-# 5. Dimensions + schema drift
-make scd2                     # SCD Type 2: move customers (incl. pinned #42), keep history
-make schema-check             # validate source schema against the contract
-make schema-drift             # rename a source column → validation FAILs loudly → reset
+# 4. Dimensions + schema drift
+uv run python src/scd2.py --merge --effective-date 2024-02-01     # initial SCD2 load
+uv run python src/scd2.py --move-id 42                            # move customer 42 (→ Austin)
+uv run python src/scd2.py --merge --effective-date 2024-03-15     # version the change
+uv run python src/scd2.py --show 42                              # see the version history
+uv run python src/schema_validate.py --simulate rename           # schema drift → loud FAIL
+uv run python src/schema_validate.py --reset                     # restore the contract
 
-# 6. Hour 3 — the orchestrators (already running from `make up`)
+# 5. Hour 3 — the orchestrators (already running from `docker compose up -d`)
 #    Airflow  http://localhost:8080   (dev: auto-admin, no login prompt)
 #    Dagster  http://localhost:3000
 ```
 
-`./bench <cmd...>` is a thin wrapper over `docker compose exec runner <cmd...>`.
-To run a script natively on the host instead: `uv run python src/<script>.py`.
+`uv run` builds the venv and installs deps (`duckdb`, `psycopg`) on first run.
+Scripts default to Postgres on `localhost:5432` (mapped by docker compose) and
+write `data/analytics.duckdb`.
+
+> No `uv`? Run the same scripts inside the bundled container:
+> `docker compose exec runner python src/<script>.py` (or `./bench python src/<script>.py`).
 
 ## Layout
 
@@ -45,8 +54,7 @@ src-lesson4/
 ├── docker-compose.yml      # postgres + runner + airflow(+meta) + dagster
 ├── Dockerfile              # runner image (python 3.13 + duckdb + psycopg)
 ├── init.sql                # OLTP source schema (orders + customers)
-├── bench                   # ./bench python src/<file>.py
-├── Makefile                # make up / seed / prove / failure / scd2 / ...
+├── bench                   # optional: docker compose exec runner <cmd>
 ├── data/                   # analytics.duckdb + staging (gitignored)
 ├── src/                    # raw-python pipeline (Hours 1-2)
 │   ├── config.py           # connection strings + target schema
@@ -71,11 +79,11 @@ src-lesson4/
 
 | Problem | Where | Proof |
 |---------|-------|-------|
-| Idempotency | `pipeline_idempotent.py` | `make prove` vs `make prove-naive` |
-| Failure recovery | `pipeline_failure.py` | `make failure` — txn rollback + retry |
+| Idempotency | `pipeline_idempotent.py` | `prove_idempotent.py` — idempotent vs `--loader naive` |
+| Failure recovery | `pipeline_failure.py` | `pipeline_failure.py` — txn rollback + retry |
 | Atomic watermark | `pipeline_watermark.py` | data write + metadata write in one txn |
-| Slowly Changing Dimensions | `scd2.py` | `make scd2` — version history for customer 42 |
-| Schema evolution | `schema_validate.py` | `make schema-drift` — rename a column, watch it FAIL |
+| Slowly Changing Dimensions | `scd2.py` | `scd2.py --show 42` — version history for customer 42 |
+| Schema evolution | `schema_validate.py` | `schema_validate.py --simulate rename` — watch it FAIL |
 
 ## Idempotency strategy
 
@@ -113,6 +121,6 @@ and observability; correctness is still yours.
   `data/analytics.duckdb`. Run one writer at a time, or you'll hit a lock error.
 - **Airflow `catchup=False`** by default to avoid backfilling 2 years on a
   laptop. Use the `backfill` command above for a bounded window.
-- **First `make up` is slow** — it builds three images and pulls Postgres ×2.
-- **Reset everything:** `make clean` (drops the target) or `docker compose down -v`
+- **First `docker compose up -d` is slow** — it builds the images and pulls Postgres ×2.
+- **Reset:** delete `data/analytics.duckdb` (drops the target) or `docker compose down -v`
   (also wipes the seeded source + Airflow metadata).
