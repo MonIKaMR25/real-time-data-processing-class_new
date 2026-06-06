@@ -52,8 +52,10 @@ def probe_postgres() -> None:
         # Sample orders
         cur.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 3")
         print("\nSample orders (latest 3):")
+        print("  | id | customer_id | amount | status | created_at |")
+        print("  |----|-------------|--------|--------|------------|")
         for row in cur.fetchall():
-            print(f"  id={row[0]} customer_id={row[1]} amount=${row[2]:.2f} status={row[3]} {row[4]}")
+            print(f"  | {row[0]} | {row[1]} | ${row[2]:.2f} | {row[3]} | {row[4]} |")
 
 
 def probe_duckdb() -> None:
@@ -99,8 +101,13 @@ def probe_duckdb() -> None:
             sample = con.execute(f"SELECT * FROM {table_name} LIMIT 2").fetchall()
             if sample:
                 print("  sample rows:")
+                # Get column names
+                cols = con.execute(f"DESCRIBE {table_name}").fetchall()
+                col_names = [c[0] for c in cols]
+                print("  | " + " | ".join(col_names) + " |")
+                print("  | " + " | ".join(["----"] * len(col_names)) + " |")
                 for row in sample:
-                    print(f"    {row}")
+                    print("  | " + " | ".join(str(v) for v in row) + " |")
         except Exception:
             pass
     
