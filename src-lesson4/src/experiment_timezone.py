@@ -26,7 +26,9 @@ ZONES = ["UTC", "America/Los_Angeles", "Asia/Tokyo"]
 
 
 def count_for(cur, target_date: date, zone: str) -> int:
-    cur.execute("SET TimeZone = %s", (zone,))
+    # SET doesn't accept bind parameters ("SET TimeZone = $1" is a syntax error),
+    # but the set_config() function does — use it to set the session timezone safely.
+    cur.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     cur.execute(
         "SELECT COUNT(*) FROM orders WHERE created_at::date = %s", (target_date,)
     )
