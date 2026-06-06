@@ -192,9 +192,9 @@ hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
 @keyframes titleRise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
 @keyframes drawUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes knobSlide{from{left:0}to{left:80%}}
-@keyframes flowRow{0%{transform:translateX(0);opacity:0}14%,86%{opacity:.14}100%{transform:translateX(118vw);opacity:0}}
+@keyframes flowRow{0%{transform:translateX(0);opacity:0}12%,88%{opacity:.12}100%{transform:translateX(122vw);opacity:0}}
 .flow-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
-.flow-bg .frow{position:absolute;height:7px;border-radius:3px;background:var(--accent);opacity:0;animation:flowRow 2.6s var(--ease) forwards}
+.flow-bg .frow{position:absolute;height:7px;border-radius:3px;background:var(--accent);opacity:0;animation:flowRow 6s linear infinite}
 #s1 .crumbs,#s1 .slide-content,#s1 hr.rule,#s1 .meta{position:relative;z-index:1}
 #s1 .reveal{opacity:0;animation:titleRise .85s var(--ease) forwards}
 #s1 .crumbs.reveal{animation-delay:.05s}
@@ -223,11 +223,11 @@ hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
 <!-- ─── 01 · TITLE ─────────────────────────────────────── -->
 <section class="slide visible" id="s1">
   <div class="flow-bg" aria-hidden="true">
-    <span class="frow" style="top:23%;width:18%;left:-22%;animation-delay:.2s"></span>
-    <span class="frow" style="top:39%;width:13%;left:-22%;animation-delay:.75s"></span>
-    <span class="frow" style="top:58%;width:22%;left:-22%;animation-delay:.45s"></span>
-    <span class="frow" style="top:71%;width:11%;left:-22%;animation-delay:1.15s"></span>
-    <span class="frow" style="top:50%;width:16%;left:-22%;animation-delay:1.5s"></span>
+    <span class="frow" style="top:23%;width:18%;left:-25%;animation-duration:6.5s;animation-delay:-1s"></span>
+    <span class="frow" style="top:39%;width:13%;left:-25%;animation-duration:8s;animation-delay:-4s"></span>
+    <span class="frow" style="top:58%;width:22%;left:-25%;animation-duration:5.5s;animation-delay:-2.5s"></span>
+    <span class="frow" style="top:71%;width:11%;left:-25%;animation-duration:7.5s;animation-delay:-6s"></span>
+    <span class="frow" style="top:50%;width:16%;left:-25%;animation-duration:6.8s;animation-delay:-3.5s"></span>
   </div>
   <div class="crumbs reveal">
     <span class="crumb">01 Storage</span>
