@@ -99,15 +99,31 @@ h3{font-family:var(--sans);font-weight:600;font-size:clamp(1rem,2.2vw,1.5rem);le
 .big-q{font-family:var(--sans);font-weight:600;font-size:clamp(1.6rem,4.4vw,3.2rem);line-height:1.12;letter-spacing:-0.02em;color:var(--ink);max-width:20ch}
 .big-q .term{font-size:0.62em;vertical-align:0.12em}
 
-/* ---- spectrum axis ---- */
-.spectrum{margin-top:clamp(1rem,2.6vh,1.8rem);max-width:560px}
-.spectrum .axis{display:flex;align-items:center;gap:clamp(0.6rem,1.5vw,1.1rem)}
-.spectrum .end{font-family:var(--mono);font-size:clamp(0.6rem,1vw,0.74rem);color:var(--muted);white-space:nowrap}
-.spectrum .track{flex:1;height:1.5px;background:var(--ink);position:relative}
-.spectrum .track::before,.spectrum .track::after{content:'';position:absolute;top:-3px;width:1.5px;height:8px;background:var(--ink)}
-.spectrum .track::before{left:0}.spectrum .track::after{right:0}
-.spectrum .knob{position:absolute;left:80%;top:50%;width:11px;height:11px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%)}
-.spectrum .cap{font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.68rem);color:var(--muted);margin-top:0.6em;letter-spacing:0.04em}
+/* ---- live change-stream rail (replaces L4's knob/spectrum, all-red) ---- */
+.stream{margin-top:clamp(1rem,2.6vh,1.8rem);max-width:560px}
+.stream-rail{display:flex;align-items:center;gap:clamp(0.5rem,1.4vw,1rem)}
+.stream .node{font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.7rem);font-weight:700;letter-spacing:0.03em;
+  color:var(--accent);border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:4px;padding:0.3em 0.6em;white-space:nowrap}
+.stream .node.src{position:relative}
+.stream .node.src::after{content:'';position:absolute;inset:-4px;border:1.5px solid var(--accent);border-radius:7px;opacity:0;animation:srcPulse 2.4s var(--ease) infinite}
+.stream .rail{position:relative;flex:1;height:2px;background:var(--accent)}
+.stream .rail::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+  border-left:7px solid var(--accent);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.stream .pkt{position:absolute;top:50%;left:0;width:clamp(15px,1.7vw,19px);height:clamp(15px,1.7vw,19px);
+  margin-left:calc(-0.5 * clamp(15px,1.7vw,19px));border-radius:4px;background:var(--accent);color:var(--paper);
+  font-family:var(--mono);font-weight:700;font-size:clamp(0.5rem,0.78vw,0.62rem);
+  display:flex;align-items:center;justify-content:center;opacity:0;animation:pktFlow 5.6s linear infinite}
+.stream .cap{font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.68rem);color:var(--muted);margin-top:0.75em;letter-spacing:0.04em}
+/* ---- cover: faint scrolling WAL log (the stream as ambience, red LSNs) ---- */
+.wal-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.wal-bg .wal-col{position:absolute;top:0;left:0;right:0;padding-left:clamp(1.4rem,5vw,4.5rem);
+  font-family:var(--mono);font-size:clamp(0.62rem,1.05vw,0.82rem);white-space:nowrap;color:var(--ink);
+  opacity:0.06;animation:walScroll 32s linear infinite}
+.wal-bg .wal-col > span{display:block;margin-bottom:clamp(0.4rem,1vh,0.78rem)}
+.wal-bg .lsn{color:var(--accent)}.wal-bg .arr{color:var(--accent)}
+.wal-bg::before,.wal-bg::after{content:'';position:absolute;left:0;right:0;height:20%;z-index:1}
+.wal-bg::before{top:0;background:linear-gradient(var(--paper),transparent)}
+.wal-bg::after{bottom:0;background:linear-gradient(transparent,var(--paper))}
 
 /* ---- callout ---- */
 .callout{display:flex;gap:clamp(0.4rem,0.9vw,0.65rem);padding:clamp(0.4rem,0.9vh,0.7rem) clamp(0.6rem,1.2vw,1rem);
@@ -204,26 +220,31 @@ hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
 @media(max-height:600px){.kbd-hint{display:none}}
 @media (prefers-reduced-motion:reduce){.reveal{transition-duration:.2s}html{scroll-behavior:auto}}
 
-/* ---- title (slide 1) opening animation ---- */
+/* ---- title (slide 1) opening animation + shared stream motion ---- */
 @keyframes titleRise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
 @keyframes drawUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-@keyframes knobSlide{from{left:0}to{left:80%}}
-@keyframes flowRow{0%{transform:translateX(0);opacity:0}12%,88%{opacity:.12}100%{transform:translateX(122vw);opacity:0}}
-.flow-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
-.flow-bg .frow{position:absolute;height:7px;border-radius:3px;background:var(--accent);opacity:0;animation:flowRow 6s linear infinite}
-#s1 .crumbs,#s1 .slide-content,#s1 hr.rule,#s1 .meta{position:relative;z-index:1}
+@keyframes walScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+@keyframes pktFlow{
+  0%{left:0;opacity:0;transform:translateY(-50%) scale(.4)}
+  9%{opacity:1;transform:translateY(-50%) scale(1)}
+  88%{opacity:1;transform:translateY(-50%) scale(1)}
+  100%{left:100%;opacity:0;transform:translateY(-50%) scale(.4)}
+}
+@keyframes srcPulse{0%{opacity:.55;transform:scale(1)}70%,100%{opacity:0;transform:scale(1.55)}}
+#s1 .wal-bg,#s1 .crumbs,#s1 .slide-content,#s1 hr.rule,#s1 .meta{position:relative}
+#s1 .crumbs,#s1 .slide-content,#s1 hr.rule,#s1 .meta{z-index:1}
 #s1 .reveal{opacity:0;animation:titleRise .85s var(--ease) forwards}
 #s1 .crumbs.reveal{animation-delay:.05s}
 #s1 .eyebrow.reveal{animation-delay:.25s}
 #s1 h1.reveal{animation-delay:.4s}
 #s1 .sub.reveal{animation-delay:.7s}
-#s1 .spectrum.reveal{animation-delay:1.05s}
+#s1 .stream.reveal{animation-delay:1.05s}
 #s1 .t-data{position:relative;white-space:nowrap}
 #s1 .t-data::after{content:'';position:absolute;left:0;right:-.04em;bottom:.04em;height:.085em;background:var(--accent);transform:scaleX(0);transform-origin:left;animation:drawUnderline .7s var(--ease) 1.2s forwards}
-#s1 .spectrum .knob{left:0;animation:knobSlide 1.2s var(--ease) 1.25s forwards}
 @media (prefers-reduced-motion:reduce){
-  #s1 .reveal,.flow-bg .frow,#s1 .t-data::after,#s1 .spectrum .knob{animation:none}
-  #s1 .reveal{opacity:1;transform:none}#s1 .t-data::after{transform:scaleX(1)}#s1 .spectrum .knob{left:80%}
+  #s1 .reveal,.wal-bg .wal-col,.stream .pkt,.stream .node.src::after,#s1 .t-data::after{animation:none}
+  #s1 .reveal{opacity:1;transform:none}#s1 .t-data::after{transform:scaleX(1)}
+  .stream .pkt{opacity:1;left:50%}
 }
 </style>
 </head>
@@ -238,12 +259,33 @@ hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
 
 <!-- ─── 01 · TITLE ─────────────────────────────────────── -->
 <section class="slide visible" id="s1">
-  <div class="flow-bg" aria-hidden="true">
-    <span class="frow" style="top:23%;width:18%;left:-25%;animation-duration:6.5s;animation-delay:-1s"></span>
-    <span class="frow" style="top:39%;width:13%;left:-25%;animation-duration:8s;animation-delay:-4s"></span>
-    <span class="frow" style="top:58%;width:22%;left:-25%;animation-duration:5.5s;animation-delay:-2.5s"></span>
-    <span class="frow" style="top:71%;width:11%;left:-25%;animation-duration:7.5s;animation-delay:-6s"></span>
-    <span class="frow" style="top:50%;width:16%;left:-25%;animation-duration:6.8s;animation-delay:-3.5s"></span>
+  <div class="wal-bg" aria-hidden="true">
+    <div class="wal-col">
+      <span><span class="lsn">0/1A2B0</span>  INSERT orders id=1042 status=pending</span>
+      <span><span class="lsn">0/1A2C4</span>  UPDATE orders id=42 pending<span class="arr">&rarr;</span>shipped</span>
+      <span><span class="lsn">0/1A2D8</span>  INSERT orders id=1043 status=pending</span>
+      <span><span class="lsn">0/1A2F0</span>  DELETE orders id=7</span>
+      <span><span class="lsn">0/1A3104</span>  UPDATE orders id=88 shipped<span class="arr">&rarr;</span>delivered</span>
+      <span><span class="lsn">0/1A333C</span>  INSERT orders id=1044 status=pending</span>
+      <span><span class="lsn">0/1A35A0</span>  UPDATE orders id=512 pending<span class="arr">&rarr;</span>cancelled</span>
+      <span><span class="lsn">0/1A3788</span>  INSERT orders id=1045 status=pending</span>
+      <span><span class="lsn">0/1A3904</span>  UPDATE orders id=1042 pending<span class="arr">&rarr;</span>shipped</span>
+      <span><span class="lsn">0/1A3B20</span>  DELETE orders id=311</span>
+      <span><span class="lsn">0/1A3D08</span>  INSERT orders id=1046 status=pending</span>
+      <span><span class="lsn">0/1A3EE0</span>  UPDATE orders id=88 delivered<span class="arr">&rarr;</span>returned</span>
+      <span><span class="lsn">0/1A2B0</span>  INSERT orders id=1042 status=pending</span>
+      <span><span class="lsn">0/1A2C4</span>  UPDATE orders id=42 pending<span class="arr">&rarr;</span>shipped</span>
+      <span><span class="lsn">0/1A2D8</span>  INSERT orders id=1043 status=pending</span>
+      <span><span class="lsn">0/1A2F0</span>  DELETE orders id=7</span>
+      <span><span class="lsn">0/1A3104</span>  UPDATE orders id=88 shipped<span class="arr">&rarr;</span>delivered</span>
+      <span><span class="lsn">0/1A333C</span>  INSERT orders id=1044 status=pending</span>
+      <span><span class="lsn">0/1A35A0</span>  UPDATE orders id=512 pending<span class="arr">&rarr;</span>cancelled</span>
+      <span><span class="lsn">0/1A3788</span>  INSERT orders id=1045 status=pending</span>
+      <span><span class="lsn">0/1A3904</span>  UPDATE orders id=1042 pending<span class="arr">&rarr;</span>shipped</span>
+      <span><span class="lsn">0/1A3B20</span>  DELETE orders id=311</span>
+      <span><span class="lsn">0/1A3D08</span>  INSERT orders id=1046 status=pending</span>
+      <span><span class="lsn">0/1A3EE0</span>  UPDATE orders id=88 delivered<span class="arr">&rarr;</span>returned</span>
+    </div>
   </div>
   <div class="crumbs reveal">
     <span class="crumb">03 OLAP</span>
@@ -255,9 +297,18 @@ hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
     <div class="eyebrow reveal" style="margin-bottom:0.8rem;">The architectural inflection point</div>
     <h1 class="reveal">Capture the <span class="t-data">change</span>.</h1>
     <p class="sub reveal" style="margin-top:clamp(0.9rem,2vh,1.4rem);">Batch asks the database <em>&ldquo;what changed since 2&nbsp;AM?&rdquo;</em> over and over. Change Data Capture stops asking. The database tells you every <span class="term">INSERT</span>, <span class="term">UPDATE</span>, and <span class="term">DELETE</span> as it commits, in order, from a log it was already writing.</p>
-    <div class="spectrum reveal">
-      <div class="axis"><span class="end">polling</span><div class="track"><span class="knob"></span></div><span class="end">log&#8209;based</span></div>
-      <div class="cap">&larr; ask repeatedly&nbsp;&nbsp;·&nbsp;&nbsp;subscribe once &rarr;</div>
+    <div class="stream reveal">
+      <div class="stream-rail">
+        <span class="node src">orders</span>
+        <span class="rail">
+          <span class="pkt" style="animation-delay:0s">U</span>
+          <span class="pkt" style="animation-delay:-1.4s">I</span>
+          <span class="pkt" style="animation-delay:-2.8s">D</span>
+          <span class="pkt" style="animation-delay:-4.2s">I</span>
+        </span>
+        <span class="node dst">DuckDB</span>
+      </div>
+      <div class="cap">every commit, pushed in order &mdash; deletes too</div>
     </div>
   </div>
   <hr class="rule" style="margin-bottom:0.7rem;">
@@ -486,8 +537,15 @@ sum(amount) mismatch on <span class="r">3</span> rows (updated_at not set)
     <div class="kicker reveal" style="color:var(--accent);">Part one</div>
     <h2 class="reveal" style="font-size:clamp(2rem,5.5vw,3.6rem);margin-top:0.6rem;">Build the consumer by hand.</h2>
     <p class="sub reveal" style="margin-top:clamp(0.8rem,1.8vh,1.3rem);max-width:580px;">No Debezium yet. A slot, a Python loop, and DuckDB, so when the production tool &ldquo;just works&rdquo; later, you know exactly which moving parts it&rsquo;s hiding.</p>
-    <div class="spectrum reveal" style="margin-top:clamp(1rem,2.4vh,1.6rem);width:min(80vw,440px);">
-      <div class="axis"><span class="end" style="color:#9a968b;">a slot</span><div class="track" style="background:var(--paper);"><span class="knob"></span></div><span class="end" style="color:#9a968b;">live sync</span></div>
+    <div class="stream reveal" style="margin:clamp(1rem,2.4vh,1.6rem) auto 0;max-width:min(80vw,460px);">
+      <div class="stream-rail">
+        <span class="node src">a slot</span>
+        <span class="rail">
+          <span class="pkt" style="animation-delay:0s">I</span>
+          <span class="pkt" style="animation-delay:-2.8s">U</span>
+        </span>
+        <span class="node dst">live sync</span>
+      </div>
     </div>
   </div>
   <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>BUILD IT BY HAND</span><span>psycopg3 · wal2json · DuckDB</span></div>
@@ -672,8 +730,15 @@ orders_slot  <span class="g">262,144</span>     <span class="g">1,011</span>    
     <div class="kicker reveal" style="color:var(--accent);">Part two</div>
     <h2 class="reveal" style="font-size:clamp(2rem,5.5vw,3.6rem);margin-top:0.6rem;">Now break it.</h2>
     <p class="sub reveal" style="margin-top:clamp(0.8rem,1.8vh,1.3rem);max-width:580px;">A consumer that works in the demo is the easy part. The real lesson is the four ways production bites: the data that existed before the slot, a crash mid-stream, a column that appears, and a slot nobody is reading.</p>
-    <div class="spectrum reveal" style="margin-top:clamp(1rem,2.4vh,1.6rem);width:min(80vw,440px);">
-      <div class="axis"><span class="end" style="color:#9a968b;">works in demo</span><div class="track" style="background:var(--paper);"><span class="knob"></span></div><span class="end" style="color:#9a968b;">survives prod</span></div>
+    <div class="stream reveal" style="margin:clamp(1rem,2.4vh,1.6rem) auto 0;max-width:min(80vw,460px);">
+      <div class="stream-rail">
+        <span class="node src">works in demo</span>
+        <span class="rail">
+          <span class="pkt" style="animation-delay:0s">I</span>
+          <span class="pkt" style="animation-delay:-2.8s">D</span>
+        </span>
+        <span class="node dst">survives prod</span>
+      </div>
     </div>
   </div>
   <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>NOW BREAK IT</span><span>snapshot · replay · schema · disk</span></div>
