@@ -58,9 +58,12 @@ uv run python src/produce_orders.py --count 1000 --keyless     # even spread
 uv run python src/consume_naive.py                              # Ctrl-C, rerun → resumes
 
 # Movement 5 — break it
-uv run python src/experiment_rebalance.py                       # correct: 0 dup
-uv run python src/experiment_rebalance.py --skip-revoke-commit  # broken: ~200 dup
-uv run python src/produce_orders.py --rate 0 &                  # full speed (or --rate high)
+# Rebalance demo (3 terminals):
+#   T1: uv run python src/produce_orders.py --rate 100
+#   T2: uv run python src/consume_rebalance.py --name A
+#   T3: uv run python src/consume_rebalance.py --name B (then SIGKILL B)
+#   Repeat T3 with --skip-revoke-commit to see broken version
+uv run python src/produce_orders.py --rate 100 &                # producer for lag demo
 uv run python src/consume_rebalance.py --name A --slow 10       # slow consumer
 uv run python src/watch_lag.py                                  # watch lag climb, add B
 uv run python src/produce_out_of_order.py && uv run python src/produce_out_of_order.py --readback
@@ -368,12 +371,34 @@ docker start kafka-2 kafka-3
 - This is L5's apply-then-confirm meeting a new failure mode: work isn't lost to a crash, it's **reassigned**. Code lives in `consume_rebalance.py` (note the `COMMIT_RACES` guard — a commit that races a rebalance is *refused*, and crashing on that would be the real bug).
 
 ### Slide 23 — LIVE rebalance experiment ⚠ **biggest reality gap**
-- **Commands:**
+- **Commands (run in order, in separate terminals):**
   ```bash
-  uv run python src/experiment_rebalance.py                       # correct: ~83 dup, lost=0
-  uv run python src/experiment_rebalance.py --skip-revoke-commit  # broken: ~101 dup, lost=0
+  # Terminal 1: producer (to keep data flowing)
+  uv run python src/produce_orders.py --rate 100
+
+  # Terminal 2: consumer A (starts alone, owns all 6 partitions)
+  uv run python src/consume_rebalance.py --name A
+  # Output: [cXXXX] ASSIGNED  +6: P0@... P1@... P2@... P3@... P4@... P5@...
+
+  # Terminal 3: consumer B (joins the same group, triggers rebalance 1)
+  uv run python src/consume_rebalance.py --name B
+  # Output: [cYYYY] ASSIGNED  +3: P3@... P4@... P5@...
+  #          [cXXXX] REVOKED  -3: P3,P4,P5 -> committed P3@... P4@... P5@...
+
+  # Now SIGKILL consumer B (in terminal 3): kill -9 <pid> or Ctrl-Z then kill %1
+  # Terminal 2 will show: [cXXXX] REVOKED  +3: P3,P4,P5 -> committed P3@... P4@... P5@...
+  #                          [cXXXX] ASSIGNED  +3: P3@... P4@... P5@...
+  # And at the end: duplicates: ~83, lost: 0
+
+  # Repeat with --skip-revoke-commit on consumer B to see the broken version:
+  uv run python src/consume_rebalance.py --name B --skip-revoke-commit
+  # Then SIGKILL B and watch duplicates climb to ~101, lost: 0
   ```
-- Scenario: A owns all 6 → B joins (rebalance 1) → B **SIGKILLed** (rebalance 2) → A drains.
+- **What to teach from the output:**
+  - **ASSIGNED:** Consumer got these partitions at these offsets
+  - **REVOKED:** Consumer is losing these partitions; it commits current positions before handoff
+  - **The duplicate count:** Printed at the end when a consumer exits. Correct ~83, broken ~101, both lost=0
+- **The key insight:** Even with correct callbacks, you get ~83 duplicates because B is SIGKILLed and can't commit its in-flight work. Skipping the revoke commit adds ~18 more (the clean handoff's in-flight). The lesson: crashes make SOME duplicates unavoidable → idempotent sinks are the real defense.
 - **Slide now reframed to match reality** (was a misleading "0 vs 212"): correct ≈ **~83 dup**, broken ≈ **~101 dup**, **both `lost = 0`.** Numbers vary per run; the margin is modest by design — say so.
 - **Why** (this IS the deeper lesson, and it's now on the slide): the experiment **SIGKILLs B**, and a hard-killed consumer can't run `on_revoke` — so ~80 duplicates from B's uncommitted in-flight work appear in *both* runs (unavoidable at-least-once). `--skip-revoke-commit` only adds the in-flight window on the *clean* revoke (rebalance 1), bounded by `COMMIT_EVERY=100` → the modest extra (~18).
 - **What to teach from it:** (1) `lost = 0` ALWAYS — at-least-once held both times; (2) skipping the revoke commit measurably increases duplicates; (3) a crash makes *some* duplicates unavoidable → **the only real defense is an idempotent sink** (L4/L5). A *better* takeaway than a fake "0".
