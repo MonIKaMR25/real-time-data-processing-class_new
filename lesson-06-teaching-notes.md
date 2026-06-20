@@ -57,19 +57,23 @@ uv run python src/produce_orders.py --count 1000               # keyed histogram
 uv run python src/produce_orders.py --count 1000 --keyless     # even spread
 uv run python src/consume_naive.py                              # Ctrl-C, rerun → resumes
 
-# Movement 5 — break it
-# Rebalance demo (3 terminals):
-#   T1: uv run python src/produce_orders.py --rate 100
-#   T2: uv run python src/consume_rebalance.py --name A
-#   T3: uv run python src/consume_rebalance.py --name B (then SIGKILL B)
-#   Repeat T3 with --skip-revoke-commit to see broken version
-uv run python src/produce_orders.py --rate 100 &                # producer for lag demo
-uv run python src/consume_rebalance.py --name A --slow 10       # slow consumer
-uv run python src/watch_lag.py                                  # watch lag climb, add B
-uv run python src/produce_out_of_order.py && uv run python src/produce_out_of_order.py --readback
-docker stop kafka-3      # ISR shrinks, writes flow
-docker stop kafka-2      # NOT_ENOUGH_REPLICAS — refused, on purpose
-docker start kafka-2 kafka-3
+# Movement 5 — break it (5 failure modes)
+# 1. A member joins (rebalance): 3 terminals
+#    T1: uv run python src/produce_orders.py --rate 100
+#    T2: uv run python src/consume_rebalance.py --name A
+#    T3: uv run python src/consume_rebalance.py --name B (then SIGKILL B)
+#    Repeat T3 with --skip-revoke-commit to see broken version
+# 2. A member dies (lag): 4 terminals
+#    T1: uv run python src/produce_orders.py --rate 100
+#    T2: uv run python src/consume_rebalance.py --name A --slow 10
+#    T3: uv run python src/watch_lag.py --group order-processor
+#    T4: uv run python src/consume_rebalance.py --name B --slow 10
+# 3. Events arrive out of order: 1 terminal
+#    uv run python src/produce_out_of_order.py
+#    uv run python src/produce_out_of_order.py --readback
+# 4. A broker disappears: 2 terminals
+#    T1: uv run python src/produce_orders.py --rate 50 --message-timeout 10000
+#    T2: docker stop kafka-3 (ok) → docker stop kafka-2 (fails) → docker start kafka-2 kafka-3
 ```
 
 ---
@@ -320,10 +324,15 @@ docker start kafka-2 kafka-3
 
 ### Slide 18 — Live: keyed vs keyless. "50 keys, 6 partitions. *Even split?*"
 - Predict-first: produce 1,000 keyed by `customer_id`, then 1,000 `--keyless`. Guess both distributions.
-- **Commands:**
+- **Commands (run in order, in the same terminal):**
   ```bash
-  uv run python src/produce_orders.py --count 1000               # keyed histogram
-  uv run python src/produce_orders.py --count 1000 --keyless     # even spread
+  # Terminal 1: produce 1,000 keyed messages
+  uv run python src/produce_orders.py --count 1000
+  # Output: KEYED (key=customer_id) — LUMPY: P0:78  P1:198  P2:61  P3:109  P4:163  P5:391
+
+  # Terminal 1: produce 1,000 keyless messages
+  uv run python src/produce_orders.py --count 1000 --keyless
+  # Output: KEYLESS (key=None) — EVEN:   P0:178 P1:152 P2:170 P3:157 P4:170 P5:173
   ```
 - **Verified real output (yours will vary; the SHAPE is the point):**
   ```
@@ -338,9 +347,16 @@ docker start kafka-2 kafka-3
 - **process, THEN `commit(asynchronous=False)`** — commit-per-message is correct but SLOW (fine for learning; `consume_rebalance.py` batches like prod).
 
 ### Slide 20 — Live: "Kill it. Restart. *Zero re-reads.*"
-- **Commands:**
+- **Commands (run in order, in the same terminal):**
   ```bash
-  uv run python src/consume_naive.py                              # Ctrl-C, rerun → resumes
+  # Terminal 1: start consumer (fresh group)
+  uv run python src/consume_naive.py
+  # Output: [cXXXX] resuming: P0@earliest P1@earliest ... (first run)
+  #         [cXXXX] stopped after N messages. Last commit: P0@7062 ...
+
+  # Terminal 1: Ctrl-C to stop, then restart with the same group
+  uv run python src/consume_naive.py
+  # Output: [cXXXX] resuming: P0@7063 P1@... (exactly one past = zero re-reads)
   ```
 - The payoff of the whole spine. Run consumer → it reads + commits per message → **Ctrl-C** → **restart same group**.
 - **Verified:** Run 1 (fresh group) starts `resuming: P0@earliest …`, processes msgs, last commit `P0@7062`. Run 2 (same group) prints `resuming: P0@7063 …` — **exactly one past**, i.e. **zero re-reads, zero bookkeeping code.** `__consumer_offsets` did the L4 `pipeline_metadata` job.
@@ -408,23 +424,42 @@ docker start kafka-2 kafka-3
 - Flat lag = keeping pace; growing = falling behind. **Nobody's disk fills when you fall behind** (retention by time) — that's what you bought leaving the slot model.
 
 ### Slide 25 — LIVE lag under a slow consumer ⚠ **fixed a real bug**
-- **Commands:**
+- **Commands (run in order, in separate terminals):**
   ```bash
-  uv run python src/produce_orders.py --rate 100 &                # producer in background
-  uv run python src/consume_rebalance.py --name A --slow 10        # slow consumer
-  uv run python src/watch_lag.py --group order-processor           # watch lag climb
-  # In another terminal: uv run python src/consume_rebalance.py --name B --slow 10
-  # Watch lag flatten/drain as B joins
+  # Terminal 1: producer at full speed
+  uv run python src/produce_orders.py --rate 100
+
+  # Terminal 2: slow consumer (sleeps 10ms per message)
+  uv run python src/consume_rebalance.py --name A --slow 10
+
+  # Terminal 3: lag reporter
+  uv run python src/watch_lag.py --group order-processor
+  # Output: consumers   total lag    trend
+  #         1           12,406       climbing ~900/s
+  #         1           21,512       climbing
+
+  # Terminal 4: add a second consumer to the group
+  uv run python src/consume_rebalance.py --name B --slow 10
+  # Terminal 3 will show: 2 (joined)  23,108       flattening…
+  #                    2           22,887       draining ~450/s
   ```
 - **Bug I found & fixed:** `watch_lag.py` was calling `probe.committed()`, which returns the **probe's own group** (`<group>-probe`, never commits) — so it always read committed=0 and reported the **entire backlog** as lag; the "draining" payoff would never show. **Fixed** to query the real group via `admin.list_consumer_group_offsets([ConsumerGroupTopicPartitions(group, None)])`. Verified against `kafka-consumer-groups.sh --describe` (P4 committed=12601, lag=10,046 — exact match).
 - **Live staging note:** a fresh group starts at `earliest`, so initial lag = the **whole accumulated topic** (I saw ~120k). It's real, just dominated by backlog. For a clean "climb then drain" curve, use a fresh topic or a group already caught up, then throttle the consumer with `--slow`.
 - **Key question to leave them with:** lag still grows with 6 consumers on 6 partitions — options? *(None free: repartition (rebalance + key reshuffle), or make each consumer faster. The partition count you chose day one is the ceiling.)*
 
 ### Slide 26 — Out-of-order: "Kafka keeps *produce* order. Not *event* order."
-- **Commands:**
+- **Commands (run in order):**
   ```bash
-  uv run python src/produce_out_of_order.py                        # produce shuffled lifecycle
-  uv run python src/produce_out_of_order.py --readback             # read back, see disorder
+  # Terminal 1: produce shuffled lifecycle events (created → paid → shipped in random order)
+  uv run python src/produce_out_of_order.py
+
+  # Terminal 1 (same terminal): read back and see the disorder
+  uv run python src/produce_out_of_order.py --readback
+  # Output: partition 1:
+  #           offset 0  order 4  paid     ts=16:14:05
+  #           offset 1  order 4  shipped  ts=16:14:30
+  #           offset 2  order 3  paid     ts=16:14:05   <- timestamp disorder
+  #           offset 3  order 3  created  ts=16:14:00   <- preserved faithfully
   ```
 - **Verified output is clean and on-message:**
   ```
@@ -438,13 +473,29 @@ docker start kafka-2 kafka-3
 - The log records **arrival**, faithfully — including faithfully *wrong* timestamp order. If logic needs event-time order, Kafka alone can't give it → **watermarks, Lesson 7.** This shuffled topic is next week's lab rat. (Solid demo — no caveats.)
 
 ### Slide 27 — LIVE kill the brokers ⚠ **second reality gap**
-- **Commands:**
+- **Commands (run in order, in separate terminals):**
   ```bash
-  uv run python src/produce_orders.py --rate 50 --message-timeout 10000  # visible timeout
-  docker stop kafka-3                                               # ISR 3→2, writes flow
-  docker stop kafka-2                                               # ISR 2→1, producer fails
-  docker logs kafka-1 | grep NotEnough                              # broker-side reason
-  docker start kafka-2 kafka-3                                      # ISR heals, producer resumes
+  # Terminal 1: producer with short timeout so failures are visible
+  uv run python src/produce_orders.py --rate 50 --message-timeout 10000
+  # Output: producing... (continuous)
+
+  # Terminal 2: kill one broker
+  docker stop kafka-3
+  # Terminal 1: producer continues uninterrupted (ISR 3→2, still ≥ min.insync=2)
+
+  # Terminal 2: kill a second broker
+  docker stop kafka-2
+  # Terminal 1: producer starts printing FAILED: …_MSG_TIMED_OUT after ~10s
+  # (ISR 2→1, below min.insync=2 → writes refused)
+
+  # Terminal 2: check broker logs for the real reason
+  docker logs kafka-1 | grep NotEnough
+  # Output: NotEnoughReplicasException: ISR Set(1) is insufficient to satisfy
+  #         the min.isr requirement of 2 for partition orders-3
+
+  # Terminal 2: restart brokers
+  docker start kafka-2 kafka-3
+  # Terminal 1: producer resumes (ISR heals to 1,2,3)
   ```
 - **Slide claims:** `docker stop kafka-3` → writes continue (ISR shrinks); `docker stop kafka-2` → **producer prints `NOT_ENOUGH_REPLICAS`**; restart → resumes.
 - **Verified reality:**
