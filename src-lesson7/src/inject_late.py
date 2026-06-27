@@ -1,22 +1,37 @@
 """Break 01: inject blatantly-late orders and watch the watermark eat them.
 
-The pipeline has been running; its watermark is far past, say, 12:10. We send
---count orders stamped created_at = --at (e.g. 12:05) — a window emitted long ago,
-its state already dropped. Predict the pipeline's reaction before you run it:
+Run a pipeline first and let it drain to idle (watermark past 12:10); then inject
+into the RUNNING query — it does detect new events. We send --count orders stamped
+created_at = --at (e.g. 12:05), a window emitted long ago with its state already
+dropped. Predict the pipeline's reaction before you run it:
 
     console sink:               (no new output)
     [12:05,12:10) window:       unchanged — already emitted, state gone
     errors raised:              none
     log messages:               none
-    numRowsDroppedByWatermark:  jumps by --count   ← the only trace
+    numRowsDroppedByWatermark:  rises by ONE — not --count   (see below)
 
-That silent drop is the third silent lie of the course (polling drift L5, the
-swallowed column L5, now vanished revenue). The amount is deliberately huge so
-you'd notice IF it ever landed in a total. It won't.
+THE SHARP EDGE (measured, and the real lesson): numRowsDroppedByWatermark counts
+dropped *post-aggregation* rows — distinct late (group, window) keys — NOT raw
+events. This job groups by window only, so all --count events share window
+[--at, +5m) and pre-aggregate into ONE partial row; dropping it bumps the counter
+by 1. Inject $49,999.50 into a single window and the alarm reads +1. A single hot
+key can hide a fortune from your drop counter — so treat this metric as a BINARY
+alarm (zero vs nonzero), not a precise loss tally.
 
-A plain confluent-kafka producer — no Spark. Same wiring as seed_events.py.
+THE PROOF the money vanished is the dollars, not the counter: the stream's
+[12:05,12:10) total never includes this revenue, though these are real paid orders.
+A plain batch aggregate over the same topic is ~$50k richer — the L4 batch audit
+(slide 30) is what reconciles it. The amount is deliberately huge so you'd notice
+IF it ever landed in a total. It won't.
+
+Third silent lie of the course (polling drift L5, the swallowed column L5, now
+vanished revenue). A plain confluent-kafka producer — no Spark; wiring as seed_events.
 
 Usage:
+    # 1) start a pipeline, let it go quiet (idle, caught up):
+    #    uv run python src/stream_revenue.py --watermark 10 --mode update
+    # 2) inject into the running query:
     python src/inject_late.py --at "12:05" --count 50
     python src/inject_late.py --at "12:05" --count 50 --amount 999.99
 """
@@ -57,8 +72,10 @@ def run(at: str, count: int, amount: float, customer: int) -> None:
 
     total = count * amount
     print(f"injected {delivered} events · ${total:,.2f} of revenue · created_at={iso(when)}")
-    print("watch terminal 2 (watch_progress.py): numRowsDroppedByWatermark jumps by "
-          f"{count}. nothing else moves.")
+    print(f"all {count} share window [{at}, +5m) → they collapse to ONE dropped group:")
+    print("  watch_progress.py: numRowsDroppedByWatermark ticks +1 (NOT "
+          f"{count}). the window total never moves.")
+    print(f"  the vanished ${total:,.2f} shows up only as a hole the batch audit reconciles.")
 
 
 if __name__ == "__main__":
@@ -67,8 +84,8 @@ if __name__ == "__main__":
     p.add_argument("--count", type=int, default=50)
     p.add_argument("--amount", type=float, default=999.99)
     p.add_argument("--customer", type=int, default=0,
-                   help="key. 0 = the whale (its partition drains LAST), so injecting "
-                        "before a fresh run still drops deterministically — by the time "
-                        "the reader reaches the tail, the watermark has moved on.")
+                   help="partition key for the injected events (default 0). Only matters "
+                        "for which partition they land in; the drop is driven by event "
+                        "time vs the watermark, not by the key.")
     args = p.parse_args()
     run(args.at, args.count, args.amount, args.customer)

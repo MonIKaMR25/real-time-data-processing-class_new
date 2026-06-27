@@ -423,32 +423,54 @@ gone), no error, no log. **$49,999.50 — vanished, silently.** This is the **th
 lie of the course**: polling drift (L5), the swallowed column (L5), now the watermark eats
 revenue. The pattern: **defaults fail silently; you add the alarm.**
 
-> **⚠️ DEMO-RUNNING GOTCHA — read this before you teach slide 23 (hard-won).**
-> There's a reproducible Spark quirk: **once a Kafka source drains and goes idle, the
-> running query does not reliably re-detect newly produced events.** So the romantic
-> version — "leave the pipeline running, inject live, watch the drop counter tick" — is
-> flaky. `inject_late.py` is built around this:
-> - It stamps events in the **past** (`--at 12:05`) so they're late *by event time* on a
->   **fresh run**, not dependent on live re-detection.
-> - It keys them to **`--customer 0` (the whale)**, whose partition drains **last** — so
->   by the time the reader reaches the tail of that partition, the watermark has already
->   moved well past 12:10 and the injected events drop deterministically.
->
-> **Reliable way to run the demo:**
+> **⚠️ READ THIS — the deck's headline number is wrong, and the truth is a better lesson
+> (verified live, see Appendix A #4).** The live-inject path works exactly as the slide
+> depicts — start the pipeline, let it drain to idle (watermark past 12:10), inject into
+> the **running** query, and it *does* detect the new events. (An earlier worry that a
+> drained Kafka source won't re-detect did **not** reproduce; ignore the "stamp the past +
+> whale partition" workaround — it was an unnecessary detour.) **Reliable recipe:**
 > ```bash
-> # 1) Inject FIRST (events sit in the topic, stamped in the past)
-> uv run python src/inject_late.py --at "12:05" --count 50
-> # 2) THEN start a fresh pipeline; the whale partition drains last → guaranteed drop
+> # terminal 1 — start it, let it print a few batches and go quiet (idle, caught up)
 > uv run python src/stream_revenue.py --watermark 10 --mode update
-> # 3) Watch numRowsDroppedByWatermark in terminal 2 (next slide)
+> # terminal 2 — the metric
+> uv run python src/watch_progress.py
+> # terminal 3 — inject into the RUNNING query
+> uv run python src/inject_late.py --at "12:05" --count 50
 > ```
-> If you *insist* on the live-inject-into-a-running-query version, expect it to sometimes
-> not register — that's the Spark idle-source behavior, not your mistake. Say so honestly
-> if it happens; the deterministic recipe above is the one to rely on in front of a room.
+> **What actually happens (measured):** the running query reads the 50 events, the
+> `[12:05,12:10)` window total **does not move** (its state was evicted long ago), and
+> `numRowsDroppedByWatermark` rises by **1 — not 50.** That is not a bug; it is the real
+> semantic of the counter (slide 24). Teach the reveal as: *"We just dropped \$49,999.50 of
+> real paid orders. How much did our one alarm move? **One.**"* The silent drop is real —
+> the **proof is the dollars, not the counter** (batch ground truth for that window was
+> **\$116,777.82**; the stream reports **\$66,505.71** — the \$49,999.50 is gone). The
+> batch audit (slide 30) is what reconciles it.
 
 ### Slide 24 — "The counter that tells on the watermark." (the metric — never cut)
 `numRowsDroppedByWatermark` is **L7's operational number**, the lineage continuing L1 TPS
 / L5 slot lag / L6 consumer lag. Run `watch_progress.py` in terminal 2.
+
+> **⚠️ THE ONE CORRECTION THAT MATTERS — what the counter actually counts (measured).**
+> The slide implies `numRowsDroppedByWatermark` ≈ the number of dropped *events*
+> ("…50 ← the \$49,999.50, found"). **It does not.** It counts dropped **post-aggregation
+> rows** — distinct late *(group, window)* keys, *after* Spark's partial aggregation, not
+> raw input events. `stream_revenue` groups by `window` only, so all 50 injected events
+> (same `[12:05,12:10)` window) **collapse into one partial row**; dropping it bumps the
+> counter by **1**. Inject \$49,999.50 into one window → the alarm reads **+1**.
+> - **This is the lesson, sharpened, not a footnote:** a single **hot key** can hide a
+>   fortune from your drop counter. An alarm like `dropped > 10` would never fire on a
+>   whale that dumps everything into one window. *Defaults fail silently — and even the
+>   alarm you added can under-fire.* (Ties straight to L6's hot-partition thread.)
+> - It also explains the earlier sweep: ~46 "drops" for ~492 late events = ~46 distinct
+>   late **windows**, not 492 events. The counter has always meant *groups*.
+> - **So how do you prove the \$49,999.50 vanished?** Not the counter — the **dollars**:
+>   the stream's window total never includes it, while a plain batch aggregate over the
+>   same topic is ~\$50k richer. That reconciliation IS the slide-30 "batch is the audit"
+>   point, arriving early. (Quick batch check: read the topic with `spark.read`, group by
+>   `window(created_at,"5 minutes")`, and compare the `[12:05,12:10)` total to the stream's.)
+> - **Operational takeaway to state plainly:** treat `numRowsDroppedByWatermark` as a
+>   **binary alarm** — *zero vs nonzero* — not as a precise loss tally. Nonzero = you are
+>   dropping; quantify the loss with the batch reconcile, not the counter.
 
 > **Honest plumbing detail (say it — it teaches something real):** the slide says
 > "reads `query.lastProgress`." `lastProgress` is a handle **inside the pipeline's own
@@ -673,9 +695,16 @@ pedagogically useful; they're the difference between "the slide said" and "I ran
    `--watermark 1` run dropped only **92** of the ~500 late events (not all of them),
    because a 300-row batch spans ~1.8 event-minutes and the watermark trails it — so
    events less than ~`batch_width + 1 min` late are still caught. (Slides 19 & 25.)
-4. **The idle-source quirk** behind the `inject_late.py` design: a drained Kafka source
-   doesn't reliably re-detect new events, so the injector stamps the past + keys the whale
-   (last-draining partition) for a deterministic drop on a fresh run. (Slide 23 ⚠️.)
+4. **`numRowsDroppedByWatermark` counts dropped *groups*, not events — the deck's biggest
+   factual slip.** Verified end to end: inject 50 late orders (\$49,999.50) all stamped
+   `12:05`, live, into a running idle query. The query *does* detect them (the feared
+   idle-source non-detection did **not** reproduce with `--trigger 2`); the window total
+   stays put; and the counter rises by **1**, not 50, because all 50 share window
+   `[12:05,12:10)` and pre-aggregate to one dropped partial row. Ground truth: batch
+   `[12:05,12:10)` = \$116,777.82 vs stream \$66,505.71 — the \$49,999.50 is provably gone,
+   but the **dollars** show it, not the counter. Teach the counter as a *binary alarm* and
+   quantify loss with a batch reconcile. The old "stamp-the-past + whale partition"
+   workaround was chasing the non-reproducing idle quirk — dropped. (Slides 23–24 ⚠️.)
 5. **Append + no-watermark is *refused*, not silent, on Spark 4.** The deck's "eternal
    silence" is intuition; the engine fail-fasts. The truer OOM path is `update` + no
    watermark. `experiment_no_watermark.py` shows both. (Slide 26 ⚠️.)
