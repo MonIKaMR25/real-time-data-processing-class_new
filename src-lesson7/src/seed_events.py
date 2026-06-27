@@ -14,15 +14,21 @@ still catches. A uniform 1–10 would drop exactly nothing at a 10-min watermark
 This is a plain confluent-kafka producer — no Spark. produce() only ENQUEUES;
 poll() pumps callbacks, flush() drains before exit (the L6 gotcha).
 
+IDEMPOTENT: by default the topic is deleted and recreated before seeding, so a
+re-run leaves exactly --count events over the same event-time window — no
+duplicate pile-up. Pass --append to add to an existing topic instead.
+
 Usage:
-    python src/seed_events.py                       # 10k orders, 5% late
+    python src/seed_events.py                       # 10k orders, 5% late (resets first)
     python src/seed_events.py --count 5000 --span 30
     python src/seed_events.py --late-fraction 0.0   # a clean, no-drops baseline
+    python src/seed_events.py --append              # add more, don't reset
 """
 
 import argparse
 import json
 import random
+import time
 from collections import Counter
 from datetime import datetime
 
@@ -40,28 +46,69 @@ CUSTOMERS = list(range(50))
 WEIGHTS = [1 / (c + 1) for c in CUSTOMERS]
 
 
-def ensure_topic(partitions: int) -> None:
+def reset_topic(partitions: int, append: bool, count: int) -> None:
+    """Idempotency, the easy way: delete the topic and recreate it before seeding,
+    so every run yields exactly `count` events over the same event-time window —
+    re-running can't pile up duplicates. --append skips the delete to add more."""
     admin = AdminClient({"bootstrap.servers": BOOTSTRAP})
-    fut = admin.create_topics([NewTopic(TOPIC, num_partitions=partitions,
-                                        replication_factor=1)])
-    for name, f in fut.items():
+    exists = TOPIC in admin.list_topics(timeout=10).topics
+
+    if append:
+        print(f"  topic: --append → keeping '{TOPIC}'"
+              + (f", adding {count:,} more events" if exists else " (creating it)"))
+    elif exists:                                  # reset → delete, then wait until gone
+        print(f"  topic: deleting old '{TOPIC}' for a clean, idempotent reseed")
+        for _, f in admin.delete_topics([TOPIC], operation_timeout=30).items():
+            try:
+                f.result(timeout=30)
+            except Exception as e:
+                if "UNKNOWN_TOPIC_OR_PART" not in str(e):
+                    raise
+        for _ in range(30):                       # deletion is async — wait it out
+            if TOPIC not in admin.list_topics(timeout=10).topics:
+                break
+            time.sleep(1)
+
+    if append and exists:
+        return
+    for _ in range(30):                           # create, retrying while the old one clears
+        f = admin.create_topics([NewTopic(TOPIC, num_partitions=partitions,
+                                          replication_factor=1)])[TOPIC]
         try:
             f.result(timeout=30)
-            print(f"created topic: {name} ({partitions} partitions, RF=1)")
+            print(f"  topic: created '{TOPIC}' fresh ({partitions} partitions, RF=1)")
+            return
         except Exception as e:
             if "TOPIC_ALREADY_EXISTS" in str(e):
-                print(f"topic exists: {name} (appending — delete it to reset event times)")
-            else:
-                raise
+                print(f"  topic: '{TOPIC}' already present ({partitions} partitions)")
+                return
+            if "delet" in str(e).lower():          # still being deleted — wait and retry
+                time.sleep(1)
+                continue
+            raise
 
 
 def run(count: int, span_min: float, late_fraction: float, late_mean: float,
-        partitions: int) -> None:
-    ensure_topic(partitions)
+        partitions: int, append: bool) -> None:
+    base = base_time()
+    mode = ("APPEND — adds to existing data (not idempotent)" if append
+            else "idempotent — the topic is reset first, so a re-run gives the same world")
+    print("=" * 74)
+    print("seed_events · building the lesson's world")
+    print("-" * 74)
+    print(f"  - writes a batch of {count:,} orders to Kafka topic '{TOPIC}'")
+    print(f"  - event times march from {iso(base)} across {span_min:g} min: the")
+    print("    'business clock' (created_at) that every windowed aggregate groups by")
+    print(f"  - ~{late_fraction:.0%} are stamped in the PAST (exp mean {late_mean:g}m, tail to ~45m) —")
+    print("    the late stragglers the watermark must keep or drop (the lesson's test set)")
+    print(f"  - {mode}")
+    print("  every L7 demo then replays THIS static topic from earliest")
+    print("=" * 74)
+
+    reset_topic(partitions, append, count)
     producer = Producer({"bootstrap.servers": BOOTSTRAP,
                          "acks": "all", "enable.idempotence": True})
 
-    base = base_time()
     step_s = (span_min * 60.0) / max(1, count)   # cursor advance per event
     delivered = 0
     errors = 0
@@ -75,8 +122,7 @@ def run(count: int, span_min: float, late_fraction: float, late_mean: float,
         else:
             delivered += 1
 
-    print(f"seeding {count:,} orders to '{TOPIC}', event time {iso(base)} "
-          f"+ {span_min:g} min, {late_fraction:.0%} late (exp mean {late_mean:g}m)")
+    print(f"\n  producing {count:,} orders ({late_fraction:.0%} late)…")
 
     for i in range(count):
         cursor = base.timestamp() + i * step_s
@@ -119,5 +165,8 @@ if __name__ == "__main__":
     p.add_argument("--late-mean", type=float, default=7.0,
                    help="mean lateness in minutes (exponential, clamped 1–45)")
     p.add_argument("--partitions", type=int, default=4)
+    p.add_argument("--append", action="store_true",
+                   help="add to the existing topic instead of resetting it (not idempotent)")
     args = p.parse_args()
-    run(args.count, args.span, args.late_fraction, args.late_mean, args.partitions)
+    run(args.count, args.span, args.late_fraction, args.late_mean, args.partitions,
+        args.append)
