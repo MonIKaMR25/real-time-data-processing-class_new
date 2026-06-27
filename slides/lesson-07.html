@@ -760,13 +760,15 @@ state:     numRowsTotal   <span class="g">1,204</span>     <span class="cm"># op
   <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
     <div class="section-marker reveal">Break 02 &middot; live &middot; turn the dial</div>
     <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Same data. Three watermarks.</h2>
-    <p class="sub reveal" style="margin-top:0.4rem;max-width:680px;">Re-run with <span class="ink-mono">--watermark</span> at 1, 10, and 30 minutes against the seeded stream (5% of events run 1&ndash;10 minutes late). Predict each row before the reveal.</p>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:680px;">Re-run with <span class="ink-mono">--watermark</span> at 1, 10, and 30 minutes against the seeded stream (~5% of events run late, exponential tail to ~45 min). Predict each row before the reveal.</p>
     <div class="code-block reveal spoiler" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:740px;">
       <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/stream_revenue.py --watermark &lt;N&gt;</span></div>
-      <div class="code-body"><span class="cm">watermark   dropped events    first append output    state rows</span>
-1 min       <span class="r">~480 (most of the 5%)</span>   fast (~6 min)        <span class="n">tiny</span>
-10 min      <span class="n">~30 (the 10-min tail)</span>   moderate (~15 min)   moderate
-30 min      <span class="n">0</span>                       <span class="r">slow (~35 min)</span>       <span class="r">large</span></div>
+      <div class="code-body"><span class="cm">watermark   dropped   first append output   peak state</span>
+1 min        <span class="r">92</span>      fast (~6 min)         <span class="n">~5</span>
+10 min       <span class="n">43</span>      moderate (~15 min)    <span class="n">~5</span>
+30 min        <span class="n">4</span>      slow (~35 min)        <span class="n">~8</span>
+<span class="cm"># measured: 10k topic, default --max-per-trigger 300. smaller batches sharpen the</span>
+<span class="cm"># dial (more drops); your seed's random draw will differ — that's the point.</span></div>
     </div>
     <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
@@ -809,9 +811,12 @@ state rows:  6 &rarr; 9 &rarr; 12 &rarr; 14 &rarr; <span class="r">… climbs fo
     <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">Swap the tumbling window for <span class="ink-mono">window(created_at, "10 minutes", "1 minute")</span>. Every event now belongs to 10 windows. Watch <span class="ink-mono">numRowsTotal</span>:</p>
     <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:700px;">
       <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/experiment_sliding.py</span></div>
-      <div class="code-body">tumbling 5m         state rows:  <span class="n">~1,200</span>    output rows/batch: 1×
-sliding 10m / 1m    state rows:  <span class="r">~12,000</span>   output rows/batch: 10×
-                    processedRowsPerSecond: <span class="r">drops accordingly</span></div>
+      <div class="code-body">tumbling 5m         peak state:  <span class="n">~6</span>    output/batch: 1×
+sliding 10m / 1m    peak state:  <span class="r">~34</span>   output/batch: 10×  <span class="cm"># each event → 10 windows</span>
+                    state ≈ <span class="r">5.7×</span> — under 10× because the watermark evicts
+                    old windows, so not all 10 sit open at once
+<span class="cm"># measured on the 10k topic; the RATIO (≈ size/slide) is the transferable number,</span>
+<span class="cm"># not the absolutes — at production volume these are thousands of rows.</span></div>
     </div>
     <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2h6c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg>
