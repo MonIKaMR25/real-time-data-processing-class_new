@@ -455,9 +455,29 @@ items  = orders.<span class="fn">select</span>(<span class="fn">explode</span>(<
   <div class="slide-content" style="max-width:min(92vw,920px);margin:0 auto;">
     <div class="section-marker reveal">Hour 1 &middot; windowing 1/3</div>
     <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Tumbling: every event, <em>one</em> window.</h2>
-    <div class="arch reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">  [12:00 ──── 12:05)[12:05 ──── 12:10)[12:10 ──── 12:15)
-   ●  ●    ●        ●   ●  ●          ●     ●   non-overlapping,
-   fixed size, gap-free — "revenue per 5-minute interval"</div>
+    <div class="arch reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);padding:clamp(0.9rem,2vh,1.4rem) clamp(0.9rem,1.6vw,1.4rem);">
+<svg viewBox="0 0 980 184" style="width:100%;height:auto;display:block;font-family:'Space Grotesk',sans-serif" role="img" aria-label="Tumbling windows: three fixed-size, non-overlapping five-minute windows, each event landing in exactly one">
+  <rect x="30"  y="40" width="306" height="64" rx="6" fill="rgba(92,214,232,0.11)" stroke="#5cd6e8" stroke-width="1.5"/>
+  <rect x="336" y="40" width="306" height="64" rx="6" fill="rgba(92,214,232,0.05)" stroke="#5cd6e8" stroke-width="1.5"/>
+  <rect x="642" y="40" width="306" height="64" rx="6" fill="rgba(92,214,232,0.11)" stroke="#5cd6e8" stroke-width="1.5"/>
+  <text x="183" y="66" text-anchor="middle" fill="#5cd6e8" font-family="'IBM Plex Mono',monospace" font-size="13" font-weight="600">[12:00, 12:05)</text>
+  <text x="489" y="66" text-anchor="middle" fill="#5cd6e8" font-family="'IBM Plex Mono',monospace" font-size="13" font-weight="600">[12:05, 12:10)</text>
+  <text x="795" y="66" text-anchor="middle" fill="#5cd6e8" font-family="'IBM Plex Mono',monospace" font-size="13" font-weight="600">[12:10, 12:15)</text>
+  <g fill="#5cd6e8">
+    <circle cx="80" cy="90" r="5"/><circle cx="150" cy="90" r="5"/><circle cx="250" cy="90" r="5"/>
+    <circle cx="390" cy="90" r="5"/><circle cx="460" cy="90" r="5"/><circle cx="520" cy="90" r="5"/><circle cx="600" cy="90" r="5"/>
+    <circle cx="700" cy="90" r="5"/><circle cx="800" cy="90" r="5"/><circle cx="890" cy="90" r="5"/>
+  </g>
+  <g stroke="#324050" stroke-width="1.5">
+    <line x1="30" y1="104" x2="30" y2="118"/><line x1="336" y1="104" x2="336" y2="118"/>
+    <line x1="642" y1="104" x2="642" y2="118"/><line x1="948" y1="104" x2="948" y2="118"/>
+  </g>
+  <g fill="#67737f" font-family="'IBM Plex Mono',monospace" font-size="11" text-anchor="middle">
+    <text x="30" y="134">12:00</text><text x="336" y="134">12:05</text>
+    <text x="642" y="134">12:10</text><text x="948" y="134">12:15</text>
+  </g>
+  <text x="489" y="166" text-anchor="middle" fill="#aab4bf" font-size="12.5">fixed size · non-overlapping · gap-free — every event lands in exactly <tspan fill="#5cd6e8" font-weight="700">one</tspan> window</text>
+</svg></div>
     <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
       <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">the aggregation</span></div>
       <div class="code-body">revenue = (orders
