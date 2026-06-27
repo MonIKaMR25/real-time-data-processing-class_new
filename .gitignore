@@ -36,6 +36,9 @@ docker-compose.override.yml
 src-lesson3/data/
 # Lesson 6 — generated stream artifacts (ledger jsonl, consumer logs, summaries)
 src-lesson6/data/
+# Lesson 7 — generated progress jsonl + Spark checkpoints (offsets + window state)
+src-lesson7/data/
+src-lesson7/ckpt/
 *.duckdb
 *.duckdb.wal
 _tmp_load.csv
