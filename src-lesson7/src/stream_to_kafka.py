@@ -28,8 +28,8 @@ import argparse
 import json
 import shutil
 
-from config import (BOOTSTRAP, CKPT_DIR, CUSTOMERS_TOPIC, REVENUE_TOPIC,
-                    build_spark, read_orders)
+from config import (BOOTSTRAP, CKPT_DIR, CUSTOMERS_TOPIC, REVENUE_TOPIC, TOPIC,
+                    banner, build_spark, lesson, read_orders)
 
 REVENUE_CKPT = CKPT_DIR / "revenue"
 CUSTOMERS_CKPT = CKPT_DIR / "customers"
@@ -79,16 +79,24 @@ def run(reset: bool) -> None:
           .option("checkpointLocation", str(CUSTOMERS_CKPT))  # ← a DIFFERENT dir
           .outputMode("append").trigger(processingTime="5 seconds").start())
 
-    print(f"q1 → {REVENUE_TOPIC} (ckpt {REVENUE_CKPT.name}) · "
-          f"q2 → {CUSTOMERS_TOPIC} (ckpt {CUSTOMERS_CKPT.name})")
-    print("append mode: rows appear only AFTER the watermark finalizes each window.")
-    print("Ctrl-C, then rerun (without --reset) to watch it resume from the checkpoint.\n")
+    banner("stream_to_kafka · production shape (fork → sink → checkpoint)",
+           f"one source '{TOPIC}' → TWO windowed queries → TWO Kafka topics:",
+           f"  q1: revenue per 5 min            → '{REVENUE_TOPIC}'   (ckpt {REVENUE_CKPT.name})",
+           f"  q2: orders per customer per 15m  → '{CUSTOMERS_TOPIC}'  (ckpt {CUSTOMERS_CKPT.name})",
+           "ONE checkpoint dir PER query (offsets + window state, written atomically) — never shared",
+           "append mode: rows land only AFTER the watermark finalizes each window",
+           "Ctrl-C, then rerun WITHOUT --reset → it resumes from the checkpoint, no reprocessing")
     try:
         spark.streams.awaitAnyTermination()
     except KeyboardInterrupt:
         for q in (q1, q2):
             q.stop()
-        print("\nstopped. checkpoints hold the offsets + state — rerun to resume.")
+        lesson(
+            "the two checkpoint dirs now hold each query's Kafka offsets + window state,",
+            "  written atomically after every batch — rerun (no --reset) and it resumes exactly,",
+            "  reprocessing nothing. That's __consumer_offsets from L6 PLUS the aggregation state.",
+            "One checkpoint per query, never shared (they'd corrupt each other).",
+            "This directory is the protagonist of Lesson 8 — exactly-once state that survives kill -9.")
     spark.stop()
 
 

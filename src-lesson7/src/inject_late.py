@@ -41,12 +41,18 @@ import json
 
 from confluent_kafka import Producer
 
-from config import BOOTSTRAP, TOPIC, base_time, iso
+from config import BOOTSTRAP, TOPIC, banner, base_time, iso, lesson
 
 
 def run(at: str, count: int, amount: float, customer: int) -> None:
     hh, mm = (int(x) for x in at.split(":"))
     when = base_time().replace(hour=hh, minute=mm, second=0, microsecond=0)
+
+    banner("inject_late · the silent drop (Break 01)",
+           f"fires {count} orders of ${amount:,.2f} each, stamped created_at={at}, into '{TOPIC}'",
+           f"  — that window was emitted long ago; a running pipeline already evicted its state",
+           "predict before you look: console stays silent · the window total does NOT move ·",
+           "  no error · numRowsDroppedByWatermark ticks up by just 1 (one dropped group)")
 
     producer = Producer({"bootstrap.servers": BOOTSTRAP,
                          "acks": "all", "enable.idempotence": True})
@@ -71,11 +77,13 @@ def run(at: str, count: int, amount: float, customer: int) -> None:
     producer.flush(30)
 
     total = count * amount
-    print(f"injected {delivered} events · ${total:,.2f} of revenue · created_at={iso(when)}")
-    print(f"all {count} share window [{at}, +5m) → they collapse to ONE dropped group:")
-    print("  watch_progress.py: numRowsDroppedByWatermark ticks +1 (NOT "
-          f"{count}). the window total never moves.")
-    print(f"  the vanished ${total:,.2f} shows up only as a hole the batch audit reconciles.")
+    print(f"\ninjected {delivered} events · ${total:,.2f} · created_at={iso(when)}")
+    lesson(
+        f"those {count} late orders all share window [{at}, +5m) → ONE dropped group:",
+        f"  numRowsDroppedByWatermark rises by 1, NOT by {count} — it counts groups, not events.",
+        f"the window total never changes; the ${total:,.2f} is gone from the stream's answer,",
+        "  recoverable only by the nightly BATCH audit (stream for speed, batch for truth).",
+        "Defaults fail silently — and even the alarm you added can under-fire on a hot key.")
 
 
 if __name__ == "__main__":

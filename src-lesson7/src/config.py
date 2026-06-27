@@ -62,6 +62,29 @@ def iso(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
 
 
+# ── Teaching narration (deliberately non-standard logs) ──────────────────────
+# These demos talk to the student: banner() up front says what's about to happen
+# and what to watch; lesson() at the end names the one idea the run just showed.
+# Not how you'd log a production job — exactly how you want a teaching demo to read.
+def banner(title: str, *lines: str) -> None:
+    print("\n" + "═" * 78)
+    print(f"  {title}")
+    if lines:
+        print("─" * 78)
+        for ln in lines:
+            print(f"  {ln}")
+    print("═" * 78)
+
+
+def lesson(*lines: str) -> None:
+    print("\n" + "═" * 78)
+    print("  ⟐  THE LESSON  ·  what this demo just showed")
+    print("─" * 78)
+    for ln in lines:
+        print(f"  {ln}")
+    print("═" * 78 + "\n")
+
+
 # ── The Spark side ───────────────────────────────────────────────────────────
 # The Kafka connector is a JVM library fetched from Maven on first run (slow
 # once, cached after). Its version must match Spark's; Spark 4 is built for

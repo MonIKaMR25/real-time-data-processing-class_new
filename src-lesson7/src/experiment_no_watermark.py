@@ -28,7 +28,7 @@ import time
 
 from pyspark.sql.functions import col, count, sum, window
 
-from config import ProgressPump, build_spark, read_orders
+from config import ProgressPump, banner, build_spark, lesson, read_orders
 
 
 def windowed_no_watermark(spark, max_per_trigger):
@@ -71,11 +71,22 @@ def part_b_update_grows(spark, mode: str, max_per_trigger: int, batches: int) ->
 
 
 def run(append_only: bool, mode: str, max_per_trigger: int, seconds: int) -> None:
+    banner("experiment_no_watermark · forget the one line (Break 03)",
+           "removes .withWatermark from the windowed aggregate, then runs two outcomes:",
+           "  PART A — append + no watermark: does Spark even start the query?",
+           "  PART B — update + no watermark: watch numRowsTotal (state) over the batches",
+           "the point: a watermark is what lets Spark FINALIZE a window and forget its state")
     spark = build_spark("L7-no-watermark")
     part_a_append_refused(spark, max_per_trigger)
     if not append_only:
         part_b_update_grows(spark, mode, max_per_trigger, seconds)
     spark.stop()
+    lesson(
+        "append + no watermark → Spark REFUSES at startup: it can't prove any window is",
+        "  final, so it fails fast rather than promise eternal silence. That guard is a feature.",
+        "update + no watermark → it runs, looks healthy, and state NEVER falls → eventual OOM.",
+        "A watermark isn't an optimization: for a windowed aggregate it's how the stream",
+        "  bounds memory and emits results. The L5 abandoned slot, reincarnated.")
 
 
 if __name__ == "__main__":

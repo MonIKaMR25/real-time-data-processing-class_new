@@ -19,7 +19,7 @@ import argparse
 import json
 import time
 
-from config import PROGRESS_FILE
+from config import PROGRESS_FILE, banner, lesson
 
 
 def fmt(s: dict, dropped_total: int) -> str:
@@ -35,7 +35,13 @@ def fmt(s: dict, dropped_total: int) -> str:
 
 
 def run(from_start: bool) -> None:
-    print(f"tailing {PROGRESS_FILE}  (start a pipeline in terminal 1)\n")
+    banner("watch_progress · the operational metric (terminal 2)",
+           f"tails {PROGRESS_FILE.name}, which stream_revenue writes one line per micro-batch",
+           "surfaces numRowsDroppedByWatermark — L7's one operational number, the lineage",
+           "  after L1 TPS · L5 slot lag · L6 consumer lag",
+           "zero = your lateness allowance is generous enough;",
+           "nonzero = you're shipping wrong totals KNOWINGLY (a decision, not a bug)")
+    print(f"\ntailing {PROGRESS_FILE}  (start a pipeline in terminal 1)\n")
     while not PROGRESS_FILE.exists():
         time.sleep(0.5)
 
@@ -56,7 +62,12 @@ def run(from_start: bool) -> None:
                 dropped_total += s["numRowsDroppedByWatermark"]
                 print(fmt(s, dropped_total))
         except KeyboardInterrupt:
-            print(f"\nstopped. total dropped this session: {dropped_total:,}")
+            lesson(
+                f"total dropped this session: {dropped_total:,}",
+                "this counter is a BINARY tripwire (zero vs nonzero), not a precise loss tally:",
+                "  it counts dropped aggregation GROUPS, not events — 50 late orders in one",
+                "  window register as +1. Quantify the lost dollars with the batch audit.",
+                "Use this to KNOW you're dropping; use the batch pipeline to say how much.")
 
 
 if __name__ == "__main__":

@@ -60,6 +60,10 @@ data, silently)."**
 > `src-lesson7/`, and `JAVA_HOME` is auto-detected (`config.py` finds Homebrew's
 > openjdk@17), so no `export` is needed. Each command is meant to be pasted and run
 > as-is. All flags shown match the scripts' actual `argparse` — no guesswork.
+> Every script **narrates itself**: a `banner()` up front (what's happening + what to
+> watch) and a `lesson()` block at the end (the one idea it just demonstrated) — so a
+> student running it solo gets the same framing the room does. Streaming scripts print
+> their `lesson()` when you Ctrl-C them.
 
 Run these BEFORE class. The first Spark run downloads the Kafka connector JAR from
 Maven (slow once, cached after) — never do that cold in front of the room.

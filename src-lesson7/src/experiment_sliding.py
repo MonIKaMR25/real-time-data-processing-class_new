@@ -26,7 +26,7 @@ import time
 
 from pyspark.sql.functions import col, count, sum, window
 
-from config import ProgressPump, build_spark, read_orders
+from config import ProgressPump, banner, build_spark, lesson, read_orders
 
 
 def measure(spark, label, win_args, seconds, max_per_trigger) -> dict:
@@ -51,6 +51,11 @@ def measure(spark, label, win_args, seconds, max_per_trigger) -> dict:
 
 
 def run(seconds: int, max_per_trigger: int) -> None:
+    banner("experiment_sliding · the price of overlap",
+           "runs two windowings over the same topic and compares peak state held at once:",
+           "  tumbling 5m     → each event lands in 1 window",
+           "  sliding 10m/1m  → each event lands in size/slide = 10 windows",
+           "WATCH peak numRowsTotal: how many open windows sit in the state store at once")
     spark = build_spark("L7-sliding-cost")
     print("\nmeasuring state cost (peak windows held at once):\n")
     t = measure(spark, "tumbling 5m", ("5 minutes",), seconds, max_per_trigger)
@@ -63,6 +68,12 @@ def run(seconds: int, max_per_trigger: int) -> None:
     print(f"  │ sliding 10m/1m  peak state {s['peak']:>6,}   ≈ {ratio:.1f}× more")
     print("  │ each event lands in size/slide = 10 windows → ~10× state & output")
     print("  └────────────────────────────────────────────────────────")
+    lesson(
+        f"sliding held ≈ {ratio:.1f}× the state of tumbling (theory is size/slide = 10×; it's",
+        "  lower here only because the watermark evicts old windows on a fast toy topic).",
+        "State and compute scale with size/slide — a 1-hour window every 10s = 360× per event.",
+        "Smooth, frequently-refreshed dashboards are bought with RAM. Treat size/slide as a",
+        "  capacity-planning number, the way partition count was in L6.")
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ import argparse
 
 from pyspark.sql.functions import avg, col, count, sum, window
 
-from config import ProgressPump, build_spark, read_orders
+from config import TOPIC, ProgressPump, banner, build_spark, lesson, read_orders
 
 
 def run(watermark_min: int, window_min: int, trigger_s: int, mode: str,
@@ -47,8 +47,14 @@ def run(watermark_min: int, window_min: int, trigger_s: int, mode: str,
         col("total_revenue"),
         col("avg_order_value"))
 
-    print(f"\nwindow={window_min}m · watermark={watermark_min}m · "
-          f"trigger={trigger_s}s · mode={mode} · maxOffsetsPerTrigger={max_per_trigger}\n")
+    banner("stream_revenue · windowed revenue over the order stream",
+           f"reads '{TOPIC}' from earliest, groups by a {window_min}-min event-time window,",
+           "  sums revenue per window — the GROUP BY you know, but groups stay OPEN over time",
+           "three independent dials (confusing them is THE streaming bug):",
+           f"  window={window_min}m = the question  ·  watermark={watermark_min}m = patience for late data",
+           f"  trigger={trigger_s}s = latency only  ·  mode={mode} (update=partials / append=finals)",
+           f"throttled to {max_per_trigger} rows/batch so the watermark advances visibly, not in one jump",
+           "WATCH the progress line: windows fill, the watermark (wm) creeps up, late rows drop")
 
     query = (out.writeStream
         .outputMode(mode)                                    # ← update/append/complete
@@ -63,8 +69,12 @@ def run(watermark_min: int, window_min: int, trigger_s: int, mode: str,
     except KeyboardInterrupt:
         pump.stop()
         query.stop()
-        print(f"\nstopped. cumulative numRowsDroppedByWatermark = "
-              f"{pump.dropped_total:,}  (watermark={watermark_min}m)")
+        lesson(
+            f"cumulative numRowsDroppedByWatermark = {pump.dropped_total:,}  (at watermark {watermark_min}m)",
+            "window = the QUESTION (per N min) · trigger = LATENCY only · watermark = PATIENCE",
+            "  for stragglers (and how much state you keep). Re-run with a different --trigger:",
+            "  the totals don't move. Re-run with a different --watermark: completeness vs latency.",
+            "That dropped count is revenue you CHOSE not to wait for — a business decision, once you can see it.")
 
 
 if __name__ == "__main__":

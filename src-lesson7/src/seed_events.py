@@ -35,7 +35,7 @@ from datetime import datetime
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient, NewTopic
 
-from config import BOOTSTRAP, TOPIC, base_time, iso
+from config import BOOTSTRAP, TOPIC, banner, base_time, iso, lesson
 
 STATUSES = ["created", "paid", "shipped", "delivered"]
 
@@ -92,18 +92,15 @@ def run(count: int, span_min: float, late_fraction: float, late_mean: float,
         partitions: int, append: bool) -> None:
     base = base_time()
     mode = ("APPEND — adds to existing data (not idempotent)" if append
-            else "idempotent — the topic is reset first, so a re-run gives the same world")
-    print("=" * 74)
-    print("seed_events · building the lesson's world")
-    print("-" * 74)
-    print(f"  - writes a batch of {count:,} orders to Kafka topic '{TOPIC}'")
-    print(f"  - event times march from {iso(base)} across {span_min:g} min: the")
-    print("    'business clock' (created_at) that every windowed aggregate groups by")
-    print(f"  - ~{late_fraction:.0%} are stamped in the PAST (exp mean {late_mean:g}m, tail to ~45m) —")
-    print("    the late stragglers the watermark must keep or drop (the lesson's test set)")
-    print(f"  - {mode}")
-    print("  every L7 demo then replays THIS static topic from earliest")
-    print("=" * 74)
+            else "idempotent — topic is reset first, so a re-run gives the same world")
+    banner("seed_events · building the lesson's world",
+           f"writes a batch of {count:,} orders to Kafka topic '{TOPIC}'",
+           f"event times march from {iso(base)} across {span_min:g} min: the 'business",
+           "  clock' (created_at) that every windowed aggregate groups by",
+           f"~{late_fraction:.0%} are stamped in the PAST (exp mean {late_mean:g}m, tail to ~45m) — the late",
+           "  stragglers the watermark must keep or drop (the lesson's test set)",
+           mode,
+           "every L7 demo then replays THIS static topic from earliest")
 
     reset_topic(partitions, append, count)
     producer = Producer({"bootstrap.servers": BOOTSTRAP,
@@ -155,6 +152,14 @@ def run(count: int, span_min: float, late_fraction: float, late_mean: float,
         for m in sorted(lateness_hist):
             n = lateness_hist[m]
             print(f"  {m:>2}–{m+1:<2}m  {'#' * max(1, n // 3)}  {n}")
+
+    pct = late_count / max(1, delivered)
+    lesson(
+        f"{late_count:,} of {delivered:,} orders ({pct:.1%}) carry an event time in the PAST —",
+        "  they sit out of order in the log, exactly like L6's shuffled topic.",
+        "Event time (created_at) is NOT arrival order. Today's whole job is deciding",
+        "  which of these stragglers still count: that decision is the watermark.",
+        "Next → stream_revenue.py turns this static topic into windowed revenue.")
 
 
 if __name__ == "__main__":
