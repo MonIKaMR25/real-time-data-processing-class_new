@@ -77,12 +77,22 @@ def build_spark(app_name: str, shuffle_partitions: int = 4):
     console output readable in class. Production would leave it at 200.
     """
     if not os.environ.get("JAVA_HOME"):
-        # Spark 4 needs Java 17. The error you'd otherwise get ("JAVA_HOME is not
-        # set" / "Unable to locate a Java Runtime") eats 30 minutes of class time.
-        print("WARNING: JAVA_HOME is not set. Spark 4 needs a Java 17 JDK.\n"
-              "  macOS:  brew install openjdk@17 then\n"
-              "  export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home",
-              file=sys.stderr)
+        # Spark 4 needs Java 17, and the error you'd otherwise get ("JAVA_HOME is not
+        # set" / "Unable to locate a Java Runtime") eats 30 minutes of class time. So
+        # auto-detect the standard Homebrew openjdk@17 (Apple Silicon, then Intel) and
+        # set it in-process BEFORE the JVM launches — every `uv run python src/...`
+        # command then just works with no manual export. Only warn if none is found.
+        for cand in ("/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home",
+                     "/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"):
+            if os.path.isdir(cand):
+                os.environ["JAVA_HOME"] = cand
+                print(f"note: JAVA_HOME auto-detected → {cand}", file=sys.stderr)
+                break
+        else:
+            print("WARNING: JAVA_HOME is not set and no Homebrew openjdk@17 was found.\n"
+                  "  Spark 4 needs a Java 17 JDK:  brew install openjdk@17\n"
+                  "  then export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home",
+                  file=sys.stderr)
 
     from pyspark.sql import SparkSession
 

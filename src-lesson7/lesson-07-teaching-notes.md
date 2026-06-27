@@ -56,15 +56,21 @@ data, silently)."**
 
 ## 1. Pre-class setup checklist
 
+> **Copy-paste contract for every command in this file:** run from inside
+> `src-lesson7/`, and `JAVA_HOME` is auto-detected (`config.py` finds Homebrew's
+> openjdk@17), so no `export` is needed. Each command is meant to be pasted and run
+> as-is. All flags shown match the scripts' actual `argparse` — no guesswork.
+
 Run these BEFORE class. The first Spark run downloads the Kafka connector JAR from
 Maven (slow once, cached after) — never do that cold in front of the room.
 
 ```bash
 cd src-lesson7
 
-# 1. JDK 17 must be visible. Spark 4 dropped Java 8/11 — this is the #1 "won't start".
-export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
-#   (brew install openjdk@17 first if missing)
+# 1. JDK 17. Spark 4 dropped Java 8/11. config.py AUTO-DETECTS Homebrew's openjdk@17,
+#    so no export is needed if you installed it with brew. Only export if yours is
+#    elsewhere (run `brew install openjdk@17` first if you don't have it at all):
+# export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 
 # 2. One single-broker Kafka (KRaft, no ZooKeeper) on localhost:19092.
 docker compose up -d                     # container: kafka-l7 ; healthcheck → wait "healthy"

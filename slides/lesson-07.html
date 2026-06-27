@@ -781,23 +781,24 @@ state:     numRowsTotal   <span class="g">1,204</span>     <span class="cm"># op
 <section class="slide" id="s26">
   <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
     <div class="section-marker hot reveal">Break 03 &middot; live &middot; forget one line</div>
-    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">No watermark + append mode. What prints?</h2>
-    <p class="sub reveal" style="margin-top:0.4rem;max-width:680px;">Delete the <span class="ink-mono">withWatermark</span> line, keep <span class="ink-mono">append</span> mode, run it. Predict the console.</p>
-    <div class="code-block reveal spoiler" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">No watermark: <em class="hot">refused</em>, or silently fatal.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:680px;">Delete the <span class="ink-mono">withWatermark</span> line and run. Predict what <span class="ink-mono">append</span> does first &mdash; then what <span class="ink-mono">update</span> does.</p>
+    <div class="code-block reveal spoiler" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:740px;">
       <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/experiment_no_watermark.py</span></div>
-      <div class="code-body">batch 0 … <span class="cm">(empty)</span>    batch 12 … <span class="cm">(empty)</span>    batch 240 … <span class="cm">(empty)</span>
+      <div class="code-body"><span class="cm"># PART A — append + no watermark: Spark REFUSES to even start</span>
+[STREAMING_OUTPUT_MODE.UNSUPPORTED_OPERATION] append not supported for
+streaming aggregations <span class="r">without a watermark</span>      <span class="cm"># fail-fast = a feature</span>
 
-<span class="cm"># append emits only COMPLETE windows. no watermark = no window is ever</span>
-<span class="cm"># provably complete. output: never. state: grows every batch, forever.</span>
-state rows:  1,204 &rarr; 8,977 &rarr; 31,420 &rarr; <span class="r">…OOM, eventually</span></div>
+<span class="cm"># PART B — update + no watermark: THIS one runs, looks healthy, never forgets</span>
+state rows:  6 &rarr; 9 &rarr; 12 &rarr; 14 &rarr; <span class="r">… climbs forever &rarr; OOM</span>   <span class="cm"># no window ever finalized</span></div>
     </div>
     <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-      <span class="ctxt">Runs green, consumes CPU, emits nothing, dies weeks later at 3&nbsp;AM. The L5 abandoned slot, reincarnated: <strong>unbounded retention with nobody watching.</strong> A watermark isn&rsquo;t an optimization &mdash; for windowed aggregation in production, it&rsquo;s a requirement.</span>
+      <span class="ctxt"><strong>Append fail-fasts</strong> &mdash; it can only emit <em>final</em> windows, and with no watermark none is provably final, so Spark refuses rather than promise eternal silence. The 3&nbsp;AM killer is the version that <em>does</em> run: <span class="ink-mono">update</span> with no watermark, state climbing unbounded with nobody watching &mdash; the L5 abandoned slot, reincarnated. A watermark isn&rsquo;t an optimization; for a windowed aggregate in production it&rsquo;s a requirement.</span>
     </div>
   </div>
   <hr class="rule" style="margin-bottom:0.7rem;">
-  <div class="meta"><span>BREAK 03 &middot; LIVE</span><span>no watermark = silent, then OOM</span></div>
+  <div class="meta"><span>BREAK 03 &middot; LIVE</span><span>append refuses &middot; update grows to OOM</span></div>
 </section>
 
 <!-- ─── 27 · EXPERIMENT: SLIDING WINDOW COST ───────────── -->
