@@ -1,0 +1,14 @@
+[project]
+name = "lesson2-cockroachdb-bench"
+version = "0.1.0"
+description = "Lesson 2: Distributed OLTP — CockroachDB benchmarking and failure experiments"
+requires-python = ">=3.11"
+dependencies = [
+    "asyncpg>=0.30.0",
+    "psycopg[binary]>=3.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "py-spy>=0.4.0",
+]

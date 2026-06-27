@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Dashboard</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at top, #1a0a2e 0%, #0a0a0a 70%);
+    color: #f0f0f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  .label {
+    font-size: 11px;
+    opacity: 0.45;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin: 0 0 14px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 48px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+  .total {
+    font-size: clamp(120px, 18vw, 260px);
+    font-weight: 800;
+    line-height: 0.9;
+    background: linear-gradient(135deg, #ff006e 0%, #8338ec 60%, #3a86ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -0.03em;
+  }
+  .sparkline-wrap {
+    margin-top: 56px;
+  }
+  svg.sparkline {
+    width: 100%;
+    height: 220px;
+    display: block;
+    overflow: visible;
+  }
+  #spark-line {
+    fill: none;
+    stroke: url(#lineGrad);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    transition: d 0.25s ease-out;
+  }
+  #spark-area {
+    transition: d 0.25s ease-out;
+  }
+  .axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 11px;
+    opacity: 0.4;
+  }
+  .leaderboard { font-size: 17px; }
+  .lb-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .lb-name {
+    opacity: 0.7;
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: 14px;
+  }
+  .lb-rank { opacity: 0.35; margin-right: 12px; }
+  .lb-n {
+    font-weight: 700;
+    font-size: 22px;
+    background: linear-gradient(135deg, #ff006e, #8338ec);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .metrics-row {
+    display: flex;
+    align-items: baseline;
+    gap: 48px;
+  }
+  .p95 {
+    font-size: clamp(48px, 8vw, 100px);
+    font-weight: 800;
+    line-height: 0.9;
+    color: #00f5a0;
+    letter-spacing: -0.03em;
+  }
+  .p95-unit {
+    font-size: 14px;
+    opacity: 0.35;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .status {
+    position: fixed;
+    top: 16px; right: 16px;
+    font-size: 11px;
+    opacity: 0.5;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #00f5a0;
+    margin-right: 6px;
+    box-shadow: 0 0 12px #00f5a0;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+</style>
+</head>
+<body>
+  <div class="status"><span class="dot"></span>Live · ClickHouse</div>
+
+  <div class="grid">
+    <div>
+      <div class="metrics-row">
+        <div>
+          <div class="label">Total taps</div>
+          <div class="total" id="total">0</div>
+        </div>
+        <div>
+          <div class="label">Latency p95</div>
+          <div class="p95" id="p95">&mdash;</div>
+          <div class="p95-unit">ms end-to-end</div>
+        </div>
+      </div>
+
+      <div class="label" style="margin-top: 56px">Last 60 seconds</div>
+      <div class="sparkline-wrap">
+        <svg class="sparkline" viewBox="0 0 600 220" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#ff006e"/>
+              <stop offset="100%" stop-color="#3a86ff"/>
+            </linearGradient>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#8338ec" stop-opacity="0.25"/>
+              <stop offset="100%" stop-color="#8338ec" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path id="spark-area" fill="url(#areaGrad)" stroke="none"/>
+          <path id="spark-line"/>
+        </svg>
+        <div style="border-bottom:1px solid rgba(255,255,255,0.1)"></div>
+      </div>
+      <div class="axis">
+        <span>-60s</span><span>-30s</span><span>now</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="label">Top tappers · last 60s</div>
+      <div class="leaderboard" id="leaderboard"></div>
+    </div>
+  </div>
+
+<script>
+  const totalEl = document.getElementById("total");
+  const lbEl = document.getElementById("leaderboard");
+  const sparkLine = document.getElementById("spark-line");
+  const sparkArea = document.getElementById("spark-area");
+  const W = 600, H = 220, PAD = 10;
+
+  function buildPaths(counts) {
+    const max = Math.max(1, ...counts);
+    const pts = counts.map((c, i) => [
+      (i / 59) * W,
+      H - PAD - (c / max) * (H - PAD * 2),
+    ]);
+    const lineD = "M" + pts.map(([x, y]) => `${x},${y}`).join("L");
+    const areaD = lineD + `L${W},${H}L0,${H}Z`;
+    return { lineD, areaD };
+  }
+
+  function render(d) {
+    if (d.error) return;
+    totalEl.textContent = d.total.toLocaleString();
+
+    const p95El = document.getElementById("p95");
+    if (d.p95_ms != null) {
+      p95El.textContent = d.p95_ms.toLocaleString();
+    } else {
+      p95El.innerHTML = "&mdash;";
+    }
+
+    // Build last 60 seconds using server's clock to avoid timezone issues
+    const nowSec = Math.floor(new Date(d.now).getTime() / 1000);
+    const counts = new Array(60).fill(0);
+    for (const r of d.tps) {
+      const ts = Math.floor(new Date(r.sec).getTime() / 1000);
+      const idx = 59 - (nowSec - ts);
+      if (idx >= 0 && idx < 60) counts[idx] = r.n;
+    }
+    const { lineD, areaD } = buildPaths(counts);
+    sparkLine.setAttribute("d", lineD);
+    sparkArea.setAttribute("d", areaD);
+
+    if (d.top.length === 0) {
+      lbEl.innerHTML = '<div style="opacity:0.3;padding:20px 0">no taps yet · spam the button</div>';
+    } else {
+      lbEl.innerHTML = d.top.map((r, i) => `
+        <div class="lb-row">
+          <span><span class="lb-rank">${i + 1}</span><span class="lb-name">${r.session}</span></span>
+          <span class="lb-n">${r.n.toLocaleString()}</span>
+        </div>
+      `).join("");
+    }
+  }
+
+  function connect() {
+    const es = new EventSource("/api/stream");
+    es.onmessage = (e) => render(JSON.parse(e.data));
+    es.onerror = () => { es.close(); setTimeout(connect, 1000); };
+  }
+  connect();
+</script>
+</body>
+</html>

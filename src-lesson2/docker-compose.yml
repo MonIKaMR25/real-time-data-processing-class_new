@@ -1,0 +1,78 @@
+services:
+  crdb-1:
+    image: cockroachdb/cockroach:v24.3.14
+    container_name: lesson2-crdb-1
+    hostname: crdb-1
+    command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-1
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "26257:26257"   # SQL
+      - "8080:8080"     # Admin UI
+    volumes:
+      - crdb1:/cockroach/cockroach-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+
+  crdb-2:
+    image: cockroachdb/cockroach:v24.3.14
+    container_name: lesson2-crdb-2
+    hostname: crdb-2
+    command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-2
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "26258:26257"
+      - "8081:8080"
+    volumes:
+      - crdb2:/cockroach/cockroach-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+
+  crdb-3:
+    image: cockroachdb/cockroach:v24.3.14
+    container_name: lesson2-crdb-3
+    hostname: crdb-3
+    command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-3
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "26259:26257"
+      - "8082:8080"
+    volumes:
+      - crdb3:/cockroach/cockroach-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+
+  # One-shot init: cluster init + schema setup
+  crdb-init:
+    image: cockroachdb/cockroach:v24.3.14
+    depends_on:
+      - crdb-1
+      - crdb-2
+      - crdb-3
+    volumes:
+      - ./init.sql:/init.sql:ro
+    entrypoint: /bin/bash
+    command: >
+      -c "
+      sleep 5 &&
+      cockroach init --insecure --host=crdb-1 2>/dev/null || true &&
+      sleep 2 &&
+      cockroach sql --insecure --host=crdb-1 < /init.sql &&
+      echo '✓ Cluster initialized and schema created'
+      "
+
+volumes:
+  crdb1:
+  crdb2:
+  crdb3:

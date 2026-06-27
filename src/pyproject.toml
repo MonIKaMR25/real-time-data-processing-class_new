@@ -1,0 +1,18 @@
+[project]
+name = "tap-demo"
+version = "0.1.0"
+description = "Live tap demo for the real-time data processing course sales pitch"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "aiokafka>=0.12",
+    "clickhouse-connect>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

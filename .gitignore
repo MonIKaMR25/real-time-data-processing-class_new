@@ -1,1 +1,54 @@
+HEAD
 venv/
+
+# AI assistants
+.claude/
+.claude-design/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+.env
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Instructor-only teaching notes (private speaker notes, not part of deliverables)
+slides/*-teaching-notes.md
+
+# Docker
+docker-compose.override.yml
+
+# Lesson 3 — large/transient artifacts (downloaded parquet, intermediate CSV,
+# DuckDB databases created by experiments)
+src-lesson3/data/
+# Lesson 6 — generated stream artifacts (ledger jsonl, consumer logs, summaries)
+src-lesson6/data/
+# Lesson 7 — generated progress jsonl + Spark checkpoints (offsets + window state)
+src-lesson7/data/
+src-lesson7/ckpt/
+*.duckdb
+*.duckdb.wal
+_tmp_load.csv
+
+# Env files
+.env
+.env.local
+.env.*.local
+.DS_Store
+6a25c280a68dcc39282d187406f99434f720a4a6

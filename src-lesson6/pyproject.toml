@@ -1,0 +1,9 @@
+[project]
+name = "lesson6-kafka"
+version = "0.1.0"
+description = "Lesson 6: Event streaming fundamentals — Kafka producers, consumers, rebalances, lag"
+requires-python = ">=3.13"
+dependencies = [
+    "confluent-kafka>=2.6.0",
+    "psycopg[binary]>=3.2.0",
+]

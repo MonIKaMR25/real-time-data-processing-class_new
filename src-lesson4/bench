@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Run a command inside the `runner` container (python 3.13 + duckdb + psycopg).
+# The runner shares ./data with Airflow and Dagster, so all three write the same
+# analytical target (analytics.duckdb). DuckDB is single-writer — run one at a time.
+#
+# Usage:
+#   ./bench python src/seed_data.py
+#   ./bench python src/pipeline_naive.py 2024-01-15
+#   ./bench python src/prove_idempotent.py 2024-01-15
+#
+# To run natively on the host instead (no container):
+#   uv run python src/<script>.py
+
+set -euo pipefail
+
+if [ $# -eq 0 ]; then
+    echo "Usage: ./bench <command> [args...]" >&2
+    echo "Example: ./bench python src/prove_idempotent.py 2024-01-15" >&2
+    exit 1
+fi
+
+exec docker compose exec runner "$@"

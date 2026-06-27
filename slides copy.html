@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Software Engineering (+ Data)</title>
+
+    <!-- Fonts: Fraunces (distinctive display serif) + Work Sans (clean body) + JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,700&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES (THEME)
+           Vintage Editorial — cream, charcoal, warm accents
+           =========================================== */
+        :root {
+            /* Palette */
+            --cream: #f5f2eb;
+            --cream-dark: #ebe7dc;
+            --charcoal: #1a1a1a;
+            --ink: #2c2c2c;
+            --text-secondary: #6b6560;
+            --text-muted: #9e9890;
+            --warm: #c65d2a;
+            --warm-dim: rgba(198, 93, 42, 0.1);
+            --terracotta: #c4553d;
+            --gold: #b8941f;
+            --sage: #5a7a5e;
+            --sage-dim: rgba(90, 122, 94, 0.1);
+            --dusty-blue: #5b7e9e;
+            --dusty-blue-dim: rgba(91, 126, 158, 0.1);
+            --plum: #7a5480;
+            --plum-dim: rgba(122, 84, 128, 0.1);
+            --rule: rgba(0, 0, 0, 0.08);
+
+            /* Module accent colors */
+            --mod0: #5b7e9e;
+            --mod1: #7a5480;
+            --mod2: #c65d2a;
+            --mod3: #b8941f;
+            --mod4: #5a7a5e;
+
+            /* Typography */
+            --font-display: 'Fraunces', serif;
+            --font-body: 'Work Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            /* Responsive sizes via clamp() */
+            --title-size: clamp(2.4rem, 7vw, 5.5rem);
+            --h2-size: clamp(1.5rem, 3.8vw, 2.8rem);
+            --body-size: clamp(0.75rem, 1.35vw, 1.05rem);
+            --small-size: clamp(0.62rem, 0.95vw, 0.8rem);
+            --mono-size: clamp(0.6rem, 1vw, 0.78rem);
+
+            /* Spacing */
+            --slide-padding: clamp(1.5rem, 5vw, 5rem);
+            --content-gap: clamp(0.5rem, 2vw, 2rem);
+            --element-gap: clamp(0.25rem, 1vw, 1rem);
+
+            /* Animation */
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration: 0.6s;
+        }
+
+        /* ===========================================
+           VIEWPORT FITTING: MANDATORY BASE STYLES
+           =========================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+            background: var(--cream);
+            color: var(--charcoal);
+        }
+        html {
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: var(--cream);
+        }
+
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-height: 100%;
+            overflow: hidden;
+            padding: var(--slide-padding);
+            position: relative;
+            z-index: 2;
+        }
+
+        .card, .container, .content-box {
+            max-width: min(90vw, 1000px);
+            max-height: min(80vh, 700px);
+        }
+
+        .feature-list, .bullet-list {
+            gap: clamp(0.4rem, 1vh, 1rem);
+        }
+        .feature-list li, .bullet-list li {
+            font-size: var(--body-size);
+            line-height: 1.4;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+        }
+
+        img, .image-container {
+            max-width: 100%;
+            max-height: min(50vh, 400px);
+            object-fit: contain;
+        }
+
+        /* === Responsive breakpoints === */
+        @media (max-height: 700px) {
+            :root {
+                --slide-padding: clamp(0.75rem, 3vw, 2rem);
+                --content-gap: clamp(0.4rem, 1.5vw, 1rem);
+                --title-size: clamp(1.25rem, 4.5vw, 2.5rem);
+                --h2-size: clamp(1rem, 3vw, 1.75rem);
+            }
+        }
+        @media (max-height: 600px) {
+            :root {
+                --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem);
+                --content-gap: clamp(0.3rem, 1vw, 0.75rem);
+                --title-size: clamp(1.1rem, 4vw, 2rem);
+                --body-size: clamp(0.7rem, 1.2vw, 0.95rem);
+            }
+            .nav-dots, .keyboard-hint, .decorative, .geo-accent { display: none; }
+        }
+        @media (max-height: 500px) {
+            :root {
+                --slide-padding: clamp(0.4rem, 2vw, 1rem);
+                --title-size: clamp(1rem, 3.5vw, 1.5rem);
+                --h2-size: clamp(0.9rem, 2.5vw, 1.25rem);
+                --body-size: clamp(0.65rem, 1vw, 0.85rem);
+            }
+        }
+        @media (max-width: 600px) {
+            :root { --title-size: clamp(1.25rem, 7vw, 2.5rem); }
+            .grid { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+            html { scroll-behavior: auto; }
+        }
+
+        /* ===========================================
+           GEOMETRIC ACCENTS
+           =========================================== */
+        .geo-accent {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .geo-circle {
+            width: clamp(60px, 12vw, 160px);
+            height: clamp(60px, 12vw, 160px);
+            border-radius: 50%;
+            border: 2px solid var(--rule);
+        }
+        .geo-dot {
+            width: clamp(6px, 1vw, 10px);
+            height: clamp(6px, 1vw, 10px);
+            border-radius: 50%;
+            background: var(--warm);
+            opacity: 0.4;
+        }
+        .geo-line {
+            height: 1px;
+            background: var(--rule);
+        }
+        .geo-vline {
+            width: 1px;
+            background: var(--rule);
+        }
+
+        /* ===========================================
+           HORIZONTAL RULES
+           =========================================== */
+        .hr-editorial {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.5rem, 1.2vw, 1rem);
+            margin: clamp(0.5rem, 1.2vh, 1rem) 0;
+        }
+        .hr-editorial::before,
+        .hr-editorial::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--rule);
+        }
+        .hr-editorial span {
+            font-family: var(--font-display);
+            font-size: var(--small-size);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        /* ===========================================
+           SECTION MARKER
+           =========================================== */
+        .section-marker {
+            display: inline-flex;
+            align-items: center;
+            gap: clamp(0.3rem, 0.7vw, 0.5rem);
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            padding-bottom: clamp(0.3rem, 0.6vh, 0.5rem);
+            border-bottom: 2px solid;
+        }
+
+        /* ===========================================
+           TYPOGRAPHY
+           =========================================== */
+        .display-title {
+            font-family: var(--font-display);
+            font-size: var(--title-size);
+            font-weight: 900;
+            color: var(--charcoal);
+            line-height: 0.95;
+            letter-spacing: -0.02em;
+        }
+        .display-title em {
+            font-weight: 400;
+            font-style: italic;
+        }
+        .display-title .small-plus {
+            font-size: 0.45em;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text-secondary);
+            vertical-align: baseline;
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: var(--h2-size);
+            font-weight: 700;
+            color: var(--charcoal);
+            line-height: 1.08;
+            margin-bottom: clamp(0.4rem, 1vh, 0.8rem);
+        }
+        h2 em { font-weight: 400; font-style: italic; }
+
+        .subtitle {
+            font-family: var(--font-body);
+            font-size: clamp(0.78rem, 1.4vw, 1.05rem);
+            color: var(--text-secondary);
+            line-height: 1.55;
+            max-width: 560px;
+        }
+
+        .label {
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--text-muted);
+        }
+
+        /* ===========================================
+           PIPELINE TAGS
+           =========================================== */
+        .pipeline {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.3rem, 0.7vw, 0.55rem);
+            flex-wrap: wrap;
+            margin-top: clamp(1rem, 2.5vh, 2rem);
+        }
+        .pipe-tag {
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            font-weight: 600;
+            padding: clamp(0.18rem, 0.4vh, 0.3rem) clamp(0.5rem, 1vw, 0.8rem);
+            border-radius: 3px;
+            border: 1.5px solid;
+        }
+        .pipe-sep {
+            font-family: var(--font-display);
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* ===========================================
+           MODULE MAP
+           =========================================== */
+        .mod-list {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.12rem, 0.35vh, 0.25rem);
+            counter-reset: modcount;
+        }
+        .mod-entry {
+            display: flex;
+            align-items: baseline;
+            gap: clamp(0.6rem, 1.5vw, 1.2rem);
+            padding: clamp(0.45rem, 1vh, 0.75rem) 0;
+            border-bottom: 1px solid var(--rule);
+        }
+        .mod-entry:last-child { border-bottom: none; }
+        .mod-num {
+            font-family: var(--font-display);
+            font-size: clamp(1rem, 2vw, 1.6rem);
+            font-weight: 900;
+            min-width: clamp(2rem, 3.5vw, 2.8rem);
+            flex-shrink: 0;
+        }
+        .mod-info { flex: 1; }
+        .mod-name {
+            font-family: var(--font-display);
+            font-size: clamp(0.85rem, 1.5vw, 1.15rem);
+            font-weight: 700;
+            color: var(--charcoal);
+        }
+        .mod-desc {
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            color: var(--text-secondary);
+            margin-top: 0.1em;
+        }
+
+        /* ===========================================
+           PROFILE
+           =========================================== */
+        .profile {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.3rem, 0.7vh, 0.55rem);
+        }
+        .profile-row {
+            display: flex;
+            align-items: baseline;
+            gap: clamp(0.5rem, 1.2vw, 1rem);
+            padding-bottom: clamp(0.28rem, 0.6vh, 0.45rem);
+            border-bottom: 1px solid var(--rule);
+        }
+        .profile-row:last-child { border: none; }
+        .profile-key {
+            font-family: var(--font-mono);
+            font-size: var(--mono-size);
+            font-weight: 600;
+            color: var(--warm);
+            min-width: clamp(7rem, 14vw, 11rem);
+            flex-shrink: 0;
+        }
+        .profile-val {
+            font-family: var(--font-body);
+            font-size: clamp(0.72rem, 1.25vw, 0.95rem);
+            color: var(--charcoal);
+        }
+        .hl {
+            background: var(--warm-dim);
+            color: var(--warm);
+            padding: 0.08em 0.4em;
+            border-radius: 2px;
+            font-weight: 600;
+        }
+        .hl-dark {
+            background: var(--charcoal);
+            color: var(--cream);
+            padding: 0.08em 0.45em;
+            border-radius: 2px;
+            font-weight: 700;
+        }
+        .strike { text-decoration: line-through; opacity: 0.35; }
+
+        /* ===========================================
+           TWO-COLUMN
+           =========================================== */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: clamp(1rem, 2.5vw, 2rem);
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        @media (max-width: 700px) {
+            .two-col { grid-template-columns: 1fr; }
+        }
+        .col {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.3rem, 0.7vh, 0.55rem);
+            min-height: 0;
+            overflow: hidden;
+        }
+        .col-label {
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* ===========================================
+           CODE BLOCKS
+           =========================================== */
+        .code-block {
+            background: var(--charcoal);
+            border-radius: 4px;
+            overflow: hidden;
+            flex: 1;
+            min-height: 0;
+        }
+        .code-header {
+            display: flex;
+            align-items: center;
+            padding: clamp(0.25rem, 0.45vh, 0.35rem) clamp(0.5rem, 1vw, 0.8rem);
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .code-label {
+            font-family: var(--font-mono);
+            font-size: clamp(0.48rem, 0.75vw, 0.6rem);
+            color: rgba(255, 255, 255, 0.35);
+            margin-left: auto;
+        }
+        .code-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        .code-dot:nth-child(1) { background: #e06c60; }
+        .code-dot:nth-child(2) { background: #e5bf56; }
+        .code-dot:nth-child(3) { background: #69c064; }
+        .code-body {
+            padding: clamp(0.4rem, 0.9vh, 0.7rem) clamp(0.6rem, 1.2vw, 1rem);
+            font-family: var(--font-mono);
+            font-size: var(--mono-size);
+            color: #d4d4d4;
+            line-height: 1.65;
+            white-space: pre;
+            overflow: hidden;
+        }
+        /* Syntax */
+        .c  { color: #6a9955; }
+        .k  { color: #569cd6; }
+        .s  { color: #ce9178; }
+        .fn { color: #dcdcaa; }
+        .v  { color: #9cdcfe; }
+        .p  { color: #d4d4d4; }
+        .g  { color: #b5cea8; }
+
+        /* ===========================================
+           TOOL GRID
+           =========================================== */
+        .tool-grid {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.3rem, 0.6vh, 0.5rem);
+        }
+        .tool-card {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.5rem, 1.2vw, 1rem);
+            padding: clamp(0.45rem, 0.9vh, 0.7rem) clamp(0.6rem, 1.3vw, 1.1rem);
+            border-radius: 4px;
+            border: 1px solid var(--rule);
+            background: var(--cream-dark);
+            transition: border-color 0.3s ease;
+        }
+        .tool-card:hover { border-color: rgba(0, 0, 0, 0.15); }
+        .tool-icon {
+            font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+            flex-shrink: 0;
+        }
+        .tool-name {
+            font-family: var(--font-mono);
+            font-size: clamp(0.68rem, 1.15vw, 0.88rem);
+            font-weight: 600;
+            color: var(--charcoal);
+            min-width: clamp(5rem, 9vw, 7.5rem);
+            flex-shrink: 0;
+        }
+        .tool-desc {
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            color: var(--text-secondary);
+            flex: 1;
+        }
+        .tool-badge {
+            font-family: var(--font-display);
+            font-size: clamp(0.5rem, 0.8vw, 0.62rem);
+            font-style: italic;
+            color: var(--text-muted);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* ===========================================
+           CALLOUT
+           =========================================== */
+        .callout {
+            display: flex;
+            align-items: flex-start;
+            gap: clamp(0.35rem, 0.8vw, 0.6rem);
+            padding: clamp(0.38rem, 0.8vh, 0.6rem) clamp(0.5rem, 1.1vw, 0.9rem);
+            border-radius: 4px;
+            border-left: 3px solid;
+            flex-shrink: 0;
+        }
+        .callout-insight {
+            background: var(--dusty-blue-dim);
+            border-color: var(--dusty-blue);
+        }
+        .callout-friction {
+            background: rgba(196, 85, 61, 0.07);
+            border-color: var(--terracotta);
+        }
+        .callout-win {
+            background: var(--sage-dim);
+            border-color: var(--sage);
+        }
+        .callout-icon { flex-shrink: 0; font-size: clamp(0.75rem, 1.2vw, 0.95rem); }
+        .callout-text {
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            color: var(--ink);
+            line-height: 1.45;
+        }
+        .callout-text code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            background: rgba(0, 0, 0, 0.06);
+            padding: 0.05em 0.35em;
+            border-radius: 2px;
+        }
+
+        /* ===========================================
+           BULLETS
+           =========================================== */
+        .bullets {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.25rem, 0.55vh, 0.42rem);
+        }
+        .bullets li {
+            font-family: var(--font-body);
+            font-size: clamp(0.72rem, 1.2vw, 0.9rem);
+            color: var(--charcoal);
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            line-height: 1.4;
+        }
+        .bullets li::before {
+            content: '—';
+            color: var(--warm);
+            flex-shrink: 0;
+            font-weight: 700;
+        }
+
+        /* ===========================================
+           OS BADGES
+           =========================================== */
+        .os-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3em;
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            font-weight: 700;
+            padding: 0.2em 0.7em;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* ===========================================
+           ARCHITECTURE DIAGRAM
+           =========================================== */
+        .arch-diagram {
+            font-family: var(--font-mono);
+            font-size: clamp(0.52rem, 0.85vw, 0.68rem);
+            color: var(--charcoal);
+            line-height: 1.5;
+            white-space: pre;
+            background: var(--cream-dark);
+            padding: clamp(0.6rem, 1.2vh, 1rem) clamp(0.8rem, 1.5vw, 1.2rem);
+            border-radius: 4px;
+            border: 1px solid var(--rule);
+            overflow: hidden;
+        }
+
+        /* ===========================================
+           REVEAL ANIMATIONS
+           =========================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity var(--duration) var(--ease),
+                        transform var(--duration) var(--ease);
+        }
+        .slide.visible .reveal {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .slide.visible .reveal:nth-child(1) { transition-delay: 0.06s; }
+        .slide.visible .reveal:nth-child(2) { transition-delay: 0.14s; }
+        .slide.visible .reveal:nth-child(3) { transition-delay: 0.22s; }
+        .slide.visible .reveal:nth-child(4) { transition-delay: 0.30s; }
+        .slide.visible .reveal:nth-child(5) { transition-delay: 0.38s; }
+        .slide.visible .reveal:nth-child(6) { transition-delay: 0.46s; }
+
+        /* ===========================================
+           INLINE EDITING
+           =========================================== */
+        .edit-hotzone {
+            position: fixed;
+            top: 0; left: 0;
+            width: 80px; height: 80px;
+            z-index: 10000;
+            cursor: pointer;
+        }
+        .edit-toggle {
+            position: fixed;
+            top: clamp(0.5rem, 1.2vh, 1rem);
+            left: clamp(0.5rem, 1.2vw, 1rem);
+            font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+            background: var(--charcoal);
+            color: var(--cream);
+            border: none;
+            border-radius: 4px;
+            padding: 0.35em 0.55em;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 10001;
+            font-family: var(--font-body);
+        }
+        .edit-toggle.show,
+        .edit-toggle.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .edit-toggle.active {
+            background: var(--warm);
+        }
+        .editing-banner {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--warm);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        body.edit-mode .editing-banner { opacity: 1; }
+        body.edit-mode [contenteditable="true"]:hover {
+            outline: 2px dashed rgba(198, 93, 42, 0.3);
+            outline-offset: 4px;
+            border-radius: 2px;
+        }
+        body.edit-mode [contenteditable="true"]:focus {
+            outline: 2px solid var(--warm);
+            outline-offset: 4px;
+            border-radius: 2px;
+        }
+        .save-toast {
+            position: fixed;
+            bottom: clamp(1rem, 2.5vh, 2rem);
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--charcoal);
+            color: var(--cream);
+            font-family: var(--font-body);
+            font-size: var(--small-size);
+            padding: 0.5em 1.2em;
+            border-radius: 4px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s var(--ease);
+            z-index: 10002;
+        }
+        .save-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ===========================================
+           PROGRESS BAR
+           =========================================== */
+        .progress-bar {
+            position: fixed;
+            bottom: 0; left: 0;
+            height: 2px;
+            background: var(--warm);
+            z-index: 200;
+            transition: width 0.35s ease;
+            width: 0%;
+        }
+
+        /* ===========================================
+           NAV DOTS
+           =========================================== */
+        .nav-dots {
+            position: fixed;
+            right: clamp(0.6rem, 1.4vw, 1.2rem);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 200;
+        }
+        .nav-dot {
+            width: clamp(5px, 0.6vw, 7px);
+            height: clamp(5px, 0.6vw, 7px);
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.12);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .nav-dot:hover { background: rgba(0, 0, 0, 0.25); }
+        .nav-dot.active {
+            background: var(--warm);
+            transform: scale(1.6);
+        }
+
+        /* ===========================================
+           SLIDE NUMBER + HINT
+           =========================================== */
+        .slide-num {
+            position: absolute;
+            bottom: clamp(0.6rem, 1.5vh, 1.2rem);
+            right: clamp(1rem, 2.5vw, 2rem);
+            font-family: var(--font-mono);
+            font-size: clamp(0.48rem, 0.75vw, 0.6rem);
+            color: var(--text-muted);
+            z-index: 3;
+        }
+        .keyboard-hint {
+            position: fixed;
+            bottom: clamp(0.5rem, 1.2vh, 0.9rem);
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: var(--font-mono);
+            font-size: clamp(0.42rem, 0.65vw, 0.52rem);
+            color: var(--text-muted);
+            opacity: 0.5;
+            z-index: 200;
+        }
+        @media (max-height: 600px) {
+            .nav-dots, .keyboard-hint, .slide-num { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- === EDITING UI === -->
+<div class="edit-hotzone"></div>
+<button class="edit-toggle" id="editToggle" title="Edit mode (E)">✏️ Edit</button>
+<div class="editing-banner"></div>
+<div class="save-toast" id="saveToast">Saved to localStorage ✓</div>
+
+<!-- === PROGRESS BAR === -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- === NAVIGATION DOTS === -->
+<nav class="nav-dots" id="navDots"></nav>
+
+<!-- === KEYBOARD HINT === -->
+<span class="keyboard-hint">↑ ↓ navegar · E editar · Ctrl+S guardar</span>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 1 · PORTADA
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-0">
+    <div class="geo-accent geo-circle" style="top:8%;right:12%;"></div>
+    <div class="geo-accent geo-dot" style="top:15%;right:10%;"></div>
+    <div class="geo-accent geo-line" style="bottom:25%;left:8%;width:clamp(40px,8vw,100px);"></div>
+
+    <div class="slide-content" style="max-width:min(90vw,900px);margin:0 auto;">
+        <div class="reveal label" style="margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Clase práctica · Software Engineering &amp; Data</div>
+        <h1 class="display-title reveal">AI Software<br><em>Engineering</em> <span class="small-plus">(+ Data)</span></h1>
+        <p class="subtitle reveal" style="margin-top:clamp(0.5rem,1.2vh,1rem);">De un notebook a un agente que detecta fraude.</p>
+        <div class="pipeline reveal">
+            <span class="pipe-tag" style="color:var(--mod0);border-color:var(--mod0);">notebook</span>
+            <span class="pipe-sep">→</span>
+            <span class="pipe-tag" style="color:var(--mod1);border-color:var(--mod1);">src/</span>
+            <span class="pipe-sep">→</span>
+            <span class="pipe-tag" style="color:var(--mod2);border-color:var(--mod2);">cli</span>
+            <span class="pipe-sep">→</span>
+            <span class="pipe-tag" style="color:var(--mod3);border-color:var(--mod3);">api</span>
+            <span class="pipe-sep">→</span>
+            <span class="pipe-tag" style="color:var(--mod4);border-color:var(--mod4);">ai agent</span>
+        </div>
+    </div>
+    <span class="slide-num">01 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 2 · ¿QUIÉN ES ESTE DUDE?
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-1">
+    <div class="geo-accent geo-circle" style="bottom:10%;left:8%;opacity:0.5;"></div>
+
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="reveal label" style="margin-bottom:clamp(0.2rem,0.5vh,0.4rem);font-family:var(--font-mono);">&gt; who-is-this-dude?</div>
+        <h2 class="reveal">Hola, soy <em>Carlos</em></h2>
+        <div class="hr-editorial reveal"><span>perfil</span></div>
+        <div class="profile reveal">
+            <div class="profile-row">
+                <span class="profile-key">now</span>
+                <span class="profile-val">AI Engineer · <span class="hl">Banco Santander Group</span></span>
+            </div>
+            <div class="profile-row">
+                <span class="profile-key">before</span>
+                <span class="profile-val">Data Engineer / Science consultant · 8+ años</span>
+            </div>
+            <div class="profile-row">
+                <span class="profile-key">linkedin</span>
+                <span class="profile-val"><span class="hl-dark">h1sort</span></span>
+            </div>
+            <div class="profile-row">
+                <span class="profile-key">i_love_x</span>
+                <span class="profile-val"><span class="hl-dark">@h1sort</span></span>
+            </div>
+            <div class="profile-row">
+                <span class="profile-key">coffee</span>
+                <span class="profile-val"><span style="color:var(--warm);font-weight:600;">cappuccino</span> &nbsp;›››&nbsp; <span class="strike">all other coffee</span></span>
+            </div>
+            <div class="profile-row">
+                <span class="profile-key">hot_take</span>
+                <span class="profile-val"><span style="color:var(--warm);font-weight:600;">pandas is not a good modern library</span> </span>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">02 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 3 · EL MAPA
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-2">
+    <div class="geo-accent geo-dot" style="top:20%;right:15%;"></div>
+    <div class="geo-accent geo-vline" style="right:18%;top:22%;height:clamp(30px,6vh,60px);"></div>
+
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="reveal label" style="margin-bottom:clamp(0.2rem,0.5vh,0.4rem);">agenda</div>
+        <h2 class="reveal">Lo que vamos a <em>construir</em></h2>
+        <div class="hr-editorial reveal"><span>módulos</span></div>
+        <div class="mod-list reveal">
+            <div class="mod-entry">
+                <span class="mod-num" style="color:var(--mod0);">00</span>
+                <div class="mod-info">
+                    <div class="mod-name">Setup</div>
+                    <div class="mod-desc">Entorno listo — uv, psql, gh CLI, opencode, databricks CLI</div>
+                </div>
+            </div>
+            <div class="mod-entry">
+                <span class="mod-num" style="color:var(--mod1);">01</span>
+                <div class="mod-info">
+                    <div class="mod-name">El notebook sucio</div>
+                    <div class="mod-desc">Entender el notebook de fraude — 5 reglas, EDA, lógica mezclada</div>
+                </div>
+            </div>
+            <div class="mod-entry">
+                <span class="mod-num" style="color:var(--mod2);">02</span>
+                <div class="mod-info">
+                    <div class="mod-name">Extraer &amp; testear</div>
+                    <div class="mod-desc">Reglas a funciones → tests con polars → entry point</div>
+                </div>
+            </div>
+            <div class="mod-entry">
+                <span class="mod-num" style="color:var(--mod3);">03</span>
+                <div class="mod-info">
+                    <div class="mod-name">Pipeline ETL + API</div>
+                    <div class="mod-desc">Neon → DuckDB (OLAP) → fraud results → Django status page + CLI</div>
+                </div>
+            </div>
+            <div class="mod-entry">
+                <span class="mod-num" style="color:var(--mod4);">04</span>
+                <div class="mod-info">
+                    <div class="mod-name">MCP + agente IA</div>
+                    <div class="mod-desc">FastMCP server → opencode → tu código es una herramienta de IA</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">03 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 4 · SETUP — HERRAMIENTAS
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-3">
+    <div class="slide-content" style="max-width:min(90vw,950px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--mod0);border-color:var(--mod0);">00 Setup</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Módulo 00 — <em>Setup</em></h2>
+        <p class="subtitle reveal">Instalar antes de clase. Mínimo indispensable, sin drama.</p>
+        <div class="tool-grid reveal" style="margin-top:clamp(0.4rem,0.9vh,0.7rem);">
+            <div class="tool-card">
+                <span class="tool-icon">⚡</span>
+                <span class="tool-name">uv</span>
+                <span class="tool-desc">Gestor de Python + dependencias. Reemplaza pip, pyenv y virtualenv.</span>
+                <span class="tool-badge">pip de 2025</span>
+            </div>
+            <div class="tool-card">
+                <span class="tool-icon">🐘</span>
+                <span class="tool-name">psql</span>
+                <span class="tool-desc">Cliente de Postgres desde terminal. Explorar la base de Neon.</span>
+                <span class="tool-badge">cliente SQL</span>
+            </div>
+            <div class="tool-card">
+                <span class="tool-icon">🐙</span>
+                <span class="tool-name">gh CLI</span>
+                <span class="tool-desc">GitHub desde terminal. Issues, PRs, branches — todo sin salir del code.</span>
+                <span class="tool-badge">workflow</span>
+            </div>
+            <div class="tool-card">
+                <span class="tool-icon">🤖</span>
+                <span class="tool-name">opencode</span>
+                <span class="tool-desc">Agente de IA en terminal. Gratis. Lo usamos en el módulo final.</span>
+                <span class="tool-badge">el agente</span>
+            </div>
+            <div class="tool-card">
+                <span class="tool-icon">🧱</span>
+                <span class="tool-name">databricks CLI</span>
+                <span class="tool-desc">Accede al catálogo Unity y warehouses. Opcional pero recomendado.</span>
+                <span class="tool-badge">opcional</span>
+            </div>
+        </div>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">💡</span>
+            <span class="callout-text">Todas las dependencias Python (<code>polars</code>, <code>duckdb</code>, <code>django</code>, <code>psycopg2</code>) se instalan con <code>uv sync</code> — sin conflictos de versiones.</span>
+        </div>
+    </div>
+    <span class="slide-num">04 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 5 · SETUP — COMANDOS MAC + WINDOWS
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-4">
+    <div class="slide-content" style="max-width:min(90vw,1050px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--mod0);border-color:var(--mod0);">00 Setup</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Setup — <em>instalación</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.3rem,0.7vh,0.5rem);flex:1;min-height:0;">
+            <div class="col">
+                <span class="os-badge" style="background:var(--dusty-blue-dim);color:var(--dusty-blue);">🍎 macOS</span>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+                        <span class="code-label">zsh</span>
+                    </div>
+                    <div class="code-body"><span class="c"># Homebrew (si no lo tienes)</span>
+/bin/bash -c <span class="s">"$(curl -fsSL \
+  https://brew.sh/install.sh)"</span>
+
+<span class="c"># uv — gestor de Python</span>
+<span class="k">brew</span> install uv
+
+<span class="c"># Python 3.12 (gestionado por uv)</span>
+<span class="k">uv</span> python install <span class="g">3.12</span>
+
+<span class="c"># psql — cliente Postgres</span>
+<span class="k">brew</span> install libpq
+<span class="k">echo</span> <span class="s">'export PATH="/opt/homebrew/opt/\
+libpq/bin:$PATH"'</span> >> ~/.zshrc
+
+<span class="c"># GitHub CLI</span>
+<span class="k">brew</span> install gh
+
+<span class="c"># Node.js + opencode — agente IA</span>
+<span class="k">brew</span> install node
+<span class="k">npm</span> install -g opencode-ai
+
+<span class="c"># databricks CLI (opcional)</span>
+<span class="k">brew</span> tap databricks/tap
+<span class="k">brew</span> install databricks</div>
+                </div>
+            </div>
+            <div class="col">
+                <span class="os-badge" style="background:var(--plum-dim);color:var(--plum);">🪟 Windows · PowerShell</span>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+                        <span class="code-label">powershell</span>
+                    </div>
+                    <div class="code-body"><span class="c"># winget viene con Windows 11</span>
+<span class="c"># Node.js (necesario para opencode)</span>
+<span class="k">winget</span> install OpenJS.NodeJS.LTS
+
+<span class="c"># uv — gestor de Python</span>
+<span class="k">winget</span> install astral-sh.uv
+
+<span class="c"># Python 3.12 (gestionado por uv)</span>
+<span class="k">uv</span> python install <span class="g">3.12</span>
+
+<span class="c"># psql — descargar desde postgresql.org</span>
+<span class="c"># Installer → "Command Line Tools"</span>
+<span class="c"># Añadir bin al PATH del sistema</span>
+
+<span class="c"># GitHub CLI</span>
+<span class="k">winget</span> install GitHub.cli
+
+<span class="c"># opencode — agente IA</span>
+<span class="k">npm</span> install -g opencode-ai
+
+<span class="c"># databricks CLI (opcional)</span>
+<span class="k">winget</span> install Databricks.DatabricksCLI</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">05 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 6 · MÓDULO 01 — EL NOTEBOOK SUCIO
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-5">
+    <div class="slide-content" style="max-width:min(90vw,1050px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--mod1);border-color:var(--mod1);">01 Notebook</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Módulo 01 — <em>El notebook sucio</em></h2>
+        <p class="subtitle reveal">El punto de partida. Funciona, pero es un desastre.</p>
+        <div class="two-col reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);flex:1;min-height:0;">
+            <div class="col">
+                <span class="col-label" style="color:var(--mod1);">Lo que hay adentro</span>
+                <ul class="bullets" style="margin-bottom:clamp(0.3rem,0.7vh,0.5rem);">
+                    <li>EDA, gráficas, lógica de negocio — todo mezclado</li>
+                    <li>5 reglas de fraude inline (sin funciones)</li>
+                    <li>DELETE + INSERT directo a producción</li>
+                    <li>Loop por cada applicant — O(n × m)</li>
+                    <li>"this is pretty crude but whatever, it works"</li>
+                </ul>
+                <div class="callout callout-friction">
+                    <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--terracotta);">?</span>
+                    <span class="callout-text">El notebook corre contra Neon (prod). A escala, mata la app.</span>
+                </div>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--mod1);">Las 5 reglas de fraude</span>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+                        <span class="code-label">fraud_analysis.ipynb</span>
+                    </div>
+                    <div class="code-body"><span class="c"># 1. velocity_check</span>
+<span class="c">#    &gt;3 transacciones en 4h</span>
+
+<span class="c"># 2. income_ratio</span>
+<span class="c">#    gasto total &gt;50% del ingreso anual</span>
+
+<span class="c"># 3. geo_anomaly</span>
+<span class="c">#    3+ países en 48h</span>
+
+<span class="c"># 4. high_risk_merchant</span>
+<span class="c">#    &gt;30% en gambling/crypto/cash</span>
+
+<span class="c"># 5. unusual_hours</span>
+<span class="c">#    &gt;50% entre medianoche y 5AM</span>
+
+<span class="c"># Regla de negocio:</span>
+<span class="c"># 2+ reglas = rechazado</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">06 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 7 · MÓDULO 02 — EXTRAER & TESTEAR
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-6">
+    <div class="slide-content" style="max-width:min(90vw,1050px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--mod2);border-color:var(--mod2);">02 Extraer</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Módulo 02 — <em>Extraer &amp; testear</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);flex:1;min-height:0;">
+            <div class="col">
+                <span class="col-label" style="color:var(--mod2);">Reglas como funciones</span>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+                        <span class="code-label">src/rules.py</span>
+                    </div>
+                    <div class="code-body"><span class="k">import</span> polars <span class="k">as</span> pl
+
+<span class="k">def</span> <span class="fn">velocity_check</span>(
+    <span class="v">transactions</span>: pl.DataFrame
+) -> <span class="v">list</span>[<span class="v">dict</span>]:
+    <span class="s">"""&gt;3 txns en 4h = flag"""</span>
+    results = []
+    <span class="c"># tu lógica aquí</span>
+    <span class="k">return</span> results
+
+<span class="v">REJECTION_THRESHOLD</span> = <span class="g">2</span>
+
+<span class="k">def</span> <span class="fn">run_all_rules</span>(
+    <span class="v">transactions</span>, <span class="v">applications</span>
+) -> <span class="v">list</span>[<span class="v">dict</span>]:
+    results = []
+    results.extend(velocity_check(txns))
+    <span class="c"># ... las 5 reglas</span>
+    <span class="k">return</span> results</div>
+                </div>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--dusty-blue);">Tests con DataFrames fabricados</span>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+                        <span class="code-label">tests/test_rules.py</span>
+                    </div>
+                    <div class="code-body"><span class="k">import</span> polars <span class="k">as</span> pl
+<span class="k">from</span> src.rules <span class="k">import</span> velocity_check
+
+<span class="k">def</span> <span class="fn">test_velocity_triggers</span>():
+    <span class="s">"""4 txns en 2h → flag"""</span>
+    txns = pl.DataFrame({
+        <span class="s">"applicant_id"</span>: [<span class="g">1</span>,<span class="g">1</span>,<span class="g">1</span>,<span class="g">1</span>],
+        <span class="s">"transaction_time"</span>: [
+            <span class="s">"2024-01-01 10:00"</span>,
+            <span class="s">"2024-01-01 10:30"</span>,
+            <span class="s">"2024-01-01 11:00"</span>,
+            <span class="s">"2024-01-01 11:30"</span>,
+        ],
+    })
+    results = velocity_check(txns)
+    triggered = [r <span class="k">for</span> r <span class="k">in</span> results
+                 <span class="k">if</span> r[<span class="s">"triggered"</span>]]
+    <span class="k">assert</span> len(triggered) == <span class="g">1</span></div>
+                </div>
+                <div class="callout callout-win" style="margin-top:clamp(0.15rem,0.35vh,0.25rem);">
+                    <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+                    <span class="callout-text">Sin base de datos. Tests rápidos con DataFrames fabricados. <code>uv run pytest</code></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">07 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 8 · MÓDULO 03 — PIPELINE + API + CLI
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-7">
+    <div class="geo-accent geo-circle" style="top:12%;right:8%;width:clamp(40px,8vw,100px);height:clamp(40px,8vw,100px);border-color:var(--gold);opacity:0.2;"></div>
+
+    <div class="slide-content" style="max-width:min(90vw,1050px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--mod3);border-color:var(--mod3);">03 Pipeline</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Módulo 03 — <em>Pipeline ETL + API</em></h2>
+        <p class="subtitle reveal">Separar OLTP de OLAP. Nada analítico toca Neon directamente.</p>
+        <div class="two-col reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);flex:1;min-height:0;">
+            <div class="col">
+                <span class="col-label" style="color:var(--mod3);">Arquitectura to-be</span>
+                <div class="arch-diagram">Django App (/apply, /status, /api)
+        │ reads fraud_results
+        ▼
+  ┌─────────────┐
+  │  Neon (OLTP) │◄── pipeline escribe
+  │  prod DB     │    resultados + status
+  └──────┬──────┘
+         │ ETL extrae
+         ▼
+  ┌─────────────┐
+  │  DuckDB     │◄── reglas corren AQUÍ
+  │  (OLAP)     │
+  └──────┬──────┘
+         │
+    CLI (Typer/Rich)
+    Streamlit dashboard</div>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--mod3);">Lo que construyen</span>
+                <ul class="bullets" style="margin-bottom:clamp(0.3rem,0.7vh,0.5rem);">
+                    <li>ETL: Neon → DuckDB (incremental, sin reprocesar)</li>
+                    <li>Reglas corren contra OLAP, no producción</li>
+                    <li>Resultados escritos de vuelta a Neon</li>
+                    <li>Status page muestra breakdown por regla</li>
+                    <li>JSON API en <code>/api/status/&lt;id&gt;/</code></li>
+                    <li>CLI con Typer + Rich para ops</li>
+                </ul>
+                <div class="callout callout-friction" style="margin-top:auto;">
+                    <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--terracotta);">?</span>
+                    <span class="callout-text">La app dice "pending" para siempre. Las reglas corren contra prod.</span>
+                </div>
+                <div class="callout callout-win" style="margin-top:clamp(0.15rem,0.35vh,0.25rem);">
+                    <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+                    <span class="callout-text">DuckDB corre el análisis sin tocar prod. El status page muestra la decisión real.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">08 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 9 · MÓDULO 04 — MCP + AGENTE
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-8">
+    <div class="slide-content" style="max-width:min(90vw,1050px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--mod4);border-color:var(--mod4);">04 Agente</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Módulo 04 — <em>MCP + Agente</em></h2>
+        <p class="subtitle reveal">Tu código se convierte en una herramienta que un agente de IA puede usar.</p>
+        <div class="two-col reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);flex:1;min-height:0;">
+            <div class="col">
+                <span class="col-label" style="color:var(--mod4);">FastMCP server</span>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+                        <span class="code-label">mcp_server.py</span>
+                    </div>
+                    <div class="code-body"><span class="k">from</span> fastmcp <span class="k">import</span> FastMCP
+
+mcp = FastMCP(<span class="s">"Santandors Fraud"</span>)
+
+<span class="v">@mcp.tool()</span>
+<span class="k">def</span> <span class="fn">get_application_status</span>(
+    <span class="v">application_id</span>: <span class="v">int</span>
+) -> <span class="v">dict</span>:
+    <span class="s">"""Estado de fraude de una app."""</span>
+    <span class="c"># reutiliza tus módulos</span>
+    ...
+
+<span class="v">@mcp.tool()</span>
+<span class="k">def</span> <span class="fn">run_fraud_check</span>(
+    <span class="v">application_id</span>: <span class="v">int</span>
+) -> <span class="v">dict</span>:
+    <span class="s">"""Ejecuta análisis de fraude."""</span>
+    ...
+
+<span class="k">if</span> __name__ == <span class="s">"__main__"</span>:
+    mcp.run()</div>
+                </div>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--mod4);">Prompt de ejemplo al agente</span>
+                <div class="code-block">
+                    <div class="code-header" style="background:rgba(90,122,94,0.1);border-color:rgba(90,122,94,0.15);">
+                        <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+                        <span class="code-label">opencode</span>
+                    </div>
+                    <div class="code-body" style="color:#a8c99b;font-style:italic;">Revisa las aplicaciones pendientes
+de Santandors y dime:
+
+- ¿Cuántas hay sin procesar?
+- Ejecuta el análisis de fraude
+  para la aplicación #42
+- ¿Qué reglas se activaron?
+- ¿Fue aprobada o rechazada?
+
+Si hay más de 5 pendientes,
+dame un resumen general.</div>
+                </div>
+                <div class="callout callout-win" style="margin-top:clamp(0.15rem,0.35vh,0.25rem);">
+                    <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+                    <span class="callout-text">El agente llama a tu MCP server, ejecuta el pipeline y reporta resultados. Tu código es ahora una herramienta de IA.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">09 / 10</span>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 10 · CIERRE
+     ───────────────────────────────────────────────── -->
+<section class="slide" id="slide-9">
+    <div class="geo-accent geo-circle" style="top:15%;left:10%;width:clamp(80px,15vw,200px);height:clamp(80px,15vw,200px);border-color:rgba(0,0,0,0.05);"></div>
+    <div class="geo-accent geo-dot" style="bottom:20%;right:15%;"></div>
+    <div class="geo-accent geo-line" style="top:35%;right:10%;width:clamp(50px,10vw,120px);"></div>
+
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">¿Listos?</div>
+        <h2 class="reveal" style="font-size:clamp(2.5rem,7.5vw,6rem);text-align:center;">¡A <em>trabajar!</em></h2>
+        <p class="subtitle reveal" style="max-width:480px;text-align:center;margin:clamp(0.5rem,1.2vh,1rem) auto 0;">El repo está en GitHub. Issue #1 es su punto de entrada. Trabajen con su agente — el objetivo es que entiendan cada línea.</p>
+        <div class="hr-editorial reveal" style="width:min(300px,60vw);margin:clamp(1rem,2.5vh,2rem) auto;"><span>fin</span></div>
+        <div class="reveal" style="display:flex;gap:clamp(0.8rem,2vw,1.8rem);justify-content:center;flex-wrap:wrap;align-items:center;">
+            <span style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--text-secondary);">X: <strong style="color:var(--charcoal);">@h1sort</strong></span>
+            <span style="color:var(--text-muted);opacity:0.3;font-size:1rem;">·</span>
+            <span style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--text-secondary);">LinkedIn: <strong style="color:var(--charcoal);">h1sort</strong></span>
+            <span style="color:var(--text-muted);opacity:0.3;font-size:1rem;">·</span>
+            <span style="font-family:var(--font-body);font-size:var(--small-size);color:var(--text-secondary);">perros ››› gatos</span>
+            <span style="color:var(--text-muted);opacity:0.3;font-size:1rem;">·</span>
+            <span style="font-family:var(--font-body);font-size:var(--small-size);color:var(--text-secondary);">piña ≠ pizza</span>
+        </div>
+    </div>
+    <span class="slide-num">10 / 10</span>
+</section>
+
+<script>
+    /* ===========================================
+       SLIDE PRESENTATION CONTROLLER
+       =========================================== */
+    class SlidePresentation {
+        constructor() {
+            this.slides = Array.from(document.querySelectorAll('.slide'));
+            this.total = this.slides.length;
+            this.current = 0;
+
+            this.progressBar = document.getElementById('progressBar');
+            this.navDotsContainer = document.getElementById('navDots');
+
+            this.buildNavDots();
+            this.setupIntersectionObserver();
+            this.setupKeyboard();
+            this.setupWheel();
+            this.setupTouch();
+        }
+
+        buildNavDots() {
+            this.slides.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+                dot.addEventListener('click', () => this.goTo(i));
+                this.navDotsContainer.appendChild(dot);
+            });
+        }
+
+        setupIntersectionObserver() {
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        this.current = this.slides.indexOf(entry.target);
+                        this.updateUI();
+                    }
+                });
+            }, { threshold: 0.55 });
+            this.slides.forEach(s => obs.observe(s));
+        }
+
+        updateUI() {
+            const pct = this.total > 1 ? (this.current / (this.total - 1)) * 100 : 0;
+            this.progressBar.style.width = pct + '%';
+            document.querySelectorAll('.nav-dot').forEach((d, i) => {
+                d.classList.toggle('active', i === this.current);
+            });
+        }
+
+        goTo(index) {
+            const idx = Math.max(0, Math.min(this.total - 1, index));
+            this.slides[idx].scrollIntoView({ behavior: 'smooth' });
+        }
+
+        setupKeyboard() {
+            document.addEventListener('keydown', e => {
+                if (e.target.getAttribute('contenteditable')) return;
+
+                if (['ArrowDown','ArrowRight','Space','PageDown'].includes(e.code)) {
+                    e.preventDefault();
+                    this.goTo(this.current + 1);
+                } else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.code)) {
+                    e.preventDefault();
+                    this.goTo(this.current - 1);
+                } else if (e.code === 'Home') {
+                    e.preventDefault();
+                    this.goTo(0);
+                } else if (e.code === 'End') {
+                    e.preventDefault();
+                    this.goTo(this.total - 1);
+                }
+            });
+        }
+
+        setupWheel() {
+            let lastWheel = 0;
+            document.addEventListener('wheel', e => {
+                e.preventDefault();
+                const now = Date.now();
+                if (now - lastWheel < 700) return;
+                lastWheel = now;
+                if (e.deltaY > 0) this.goTo(this.current + 1);
+                else this.goTo(this.current - 1);
+            }, { passive: false });
+        }
+
+        setupTouch() {
+            let startY = 0;
+            document.addEventListener('touchstart', e => {
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+            document.addEventListener('touchend', e => {
+                const diff = startY - e.changedTouches[0].clientY;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) this.goTo(this.current + 1);
+                    else this.goTo(this.current - 1);
+                }
+            }, { passive: true });
+        }
+    }
+
+    /* ===========================================
+       INLINE EDITOR
+       =========================================== */
+    class InlineEditor {
+        constructor() {
+            this.isActive = false;
+            this.storageKey = 'slides-edit-' + location.pathname;
+            this.editableSelectors = [
+                '.display-title', '.display-title em',
+                'h2', 'h2 em',
+                '.subtitle', '.label',
+                '.profile-val', '.mod-name', '.mod-desc',
+                '.tool-desc', '.tool-badge',
+                '.callout-text',
+                '.bullets li',
+                '.pipe-tag',
+                '.slide-num'
+            ];
+
+            this.setupHotzone();
+            this.setupKeyboardShortcuts();
+            this.restoreEdits();
+        }
+
+        setupHotzone() {
+            const hotzone = document.querySelector('.edit-hotzone');
+            const editToggle = document.getElementById('editToggle');
+            let hideTimeout = null;
+
+            hotzone.addEventListener('mouseenter', () => {
+                clearTimeout(hideTimeout);
+                editToggle.classList.add('show');
+            });
+            hotzone.addEventListener('mouseleave', () => {
+                hideTimeout = setTimeout(() => {
+                    if (!this.isActive) editToggle.classList.remove('show');
+                }, 400);
+            });
+
+            editToggle.addEventListener('mouseenter', () => {
+                clearTimeout(hideTimeout);
+            });
+            editToggle.addEventListener('mouseleave', () => {
+                hideTimeout = setTimeout(() => {
+                    if (!this.isActive) editToggle.classList.remove('show');
+                }, 400);
+            });
+
+            editToggle.addEventListener('click', () => this.toggleEditMode());
+            hotzone.addEventListener('click', () => this.toggleEditMode());
+        }
+
+        setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if ((e.key === 'e' || e.key === 'E') && !e.target.getAttribute('contenteditable')) {
+                    this.toggleEditMode();
+                }
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    this.saveEdits();
+                    this.showToast();
+                }
+            });
+        }
+
+        toggleEditMode() {
+            this.isActive = !this.isActive;
+            const toggle = document.getElementById('editToggle');
+
+            if (this.isActive) {
+                document.body.classList.add('edit-mode');
+                toggle.classList.add('active');
+                toggle.textContent = '✏️ Editing';
+                this.enableEditing();
+            } else {
+                document.body.classList.remove('edit-mode');
+                toggle.classList.remove('active');
+                toggle.textContent = '✏️ Edit';
+                this.disableEditing();
+                this.saveEdits();
+                this.showToast();
+            }
+        }
+
+        enableEditing() {
+            this.editableSelectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => {
+                    if (el.querySelector('[contenteditable]')) return;
+                    el.setAttribute('contenteditable', 'true');
+                });
+            });
+        }
+
+        disableEditing() {
+            document.querySelectorAll('[contenteditable="true"]').forEach(el => {
+                el.removeAttribute('contenteditable');
+            });
+        }
+
+        saveEdits() {
+            const data = {};
+            document.querySelectorAll('.slide').forEach((slide, i) => {
+                data['slide-' + i] = slide.innerHTML;
+            });
+            try {
+                localStorage.setItem(this.storageKey, JSON.stringify(data));
+            } catch (e) { /* silently skip */ }
+        }
+
+        restoreEdits() {
+            try {
+                const raw = localStorage.getItem(this.storageKey);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                document.querySelectorAll('.slide').forEach((slide, i) => {
+                    const saved = data['slide-' + i];
+                    if (saved) slide.innerHTML = saved;
+                });
+            } catch (e) { /* silently skip */ }
+        }
+
+        showToast() {
+            const toast = document.getElementById('saveToast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 1800);
+        }
+    }
+
+    new SlidePresentation();
+    const editor = new InlineEditor();
+</script>
+</body>
+</html>

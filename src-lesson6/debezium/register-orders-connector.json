@@ -1,0 +1,19 @@
+{
+  "name": "orders-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "bench",
+    "database.password": "bench",
+    "database.dbname": "bench",
+    "topic.prefix": "cdc",
+    "table.include.list": "public.orders",
+    "plugin.name": "pgoutput",
+    "slot.name": "debezium_l6_slot",
+    "publication.name": "dbz_l6_publication",
+    "publication.autocreate.mode": "filtered",
+    "snapshot.mode": "no_data"
+  }
+}

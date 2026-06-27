@@ -1,0 +1,20 @@
+[project]
+name = "lesson7-streaming"
+version = "0.1.0"
+description = "Lesson 7: Stream Processing I — PySpark Structured Streaming, windows & watermarks over Kafka"
+# Spark 4.0 needs a JVM — Java 17 (NOT 8/11; Spark 4 dropped them). pyspark 4.0.x
+# officially targets Python 3.10–3.12, but we run 3.14 on purpose and verified it:
+# a windowed + watermarked streaming query runs and lastProgress exposes
+# numRowsDroppedByWatermark intact. We never touch the Python worker (no Python
+# UDFs — from_json/window/sum are all JVM-side), so pandas/pyarrow aren't needed.
+requires-python = ">=3.10"
+dependencies = [
+    # The FULL engine, not pyspark-client: bundles the Spark JARs so master
+    # local[*] runs an in-process JVM. The visible micro-batch loop IS the
+    # lesson; pyspark-client (Spark Connect, gRPC-only) would need a separate
+    # server and has gaps in the streaming progress/listener APIs we rely on.
+    "pyspark==4.0.1",
+    # The seeder / late-event injector are plain Kafka producers (host-side),
+    # same C-backed client as Lesson 6.
+    "confluent-kafka>=2.6.0",
+]

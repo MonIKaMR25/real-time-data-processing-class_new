@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 4 · Batch ETL · Move the Data</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   LESSON 4 — "REDLINE MINIMAL" DESIGN SYSTEM
+   Light, monochrome ink-on-paper + a single signal red (#d23a26).
+   Switzer (grotesque) + Space Mono. Key terms = mono w/ red underline.
+   ============================================================ */
+:root{
+  --paper:#f7f6f2; --paper2:#eeede6; --ink:#1a1915; --ink-soft:#46443c; --muted:#928f84;
+  --rule:#e4e2da; --rule-strong:#ccc9be;
+  --accent:#d23a26; --accent-soft:rgba(210,58,38,0.10); --accent-dim:rgba(210,58,38,0.18);
+  --code-bg:#201e18;
+  --sans:'Switzer',-apple-system,sans-serif; --mono:'Space Mono',ui-monospace,monospace;
+  --dur:0.7s; --ease:cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-snap-type:y mandatory;scroll-behavior:smooth}
+html,body{height:100%;overflow-x:hidden;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+
+/* ---- slide shell ---- */
+.slide{
+  width:100vw;height:100vh;height:100dvh;overflow:hidden;position:relative;scroll-snap-align:start;
+  display:flex;flex-direction:column;padding:clamp(1.3rem,3.5vw,3.3rem) clamp(1.4rem,5vw,4.5rem);
+}
+.slide-content{flex:1;display:flex;flex-direction:column;justify-content:center;max-height:100%;min-height:0;overflow:hidden}
+.slide.invert{background:var(--ink);color:var(--paper)}
+.slide.invert .sub{color:#b9b5a8}
+.slide.invert h1,.slide.invert h2,.slide.invert h3,.slide.invert .big-q{color:var(--paper)}
+.slide.invert .kicker,.slide.invert .crumb{color:#9a968b}
+.slide.invert .meta{color:#7c796f}
+.slide.invert hr.rule{border-color:rgba(255,255,255,0.10)}
+.slide.invert .callout.note{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.2)}
+.slide.invert .bullets li{color:#e7e3d8}
+.slide.invert .dtable td{color:#e7e3d8}.slide.invert .dtable th{color:#9a968b}
+.slide.invert .dtable th,.slide.invert .dtable td{border-color:rgba(255,255,255,0.12)}
+
+/* ---- nav: slash breadcrumb (course progress) ---- */
+.crumbs{display:flex;flex-wrap:wrap;font-family:var(--mono);font-size:clamp(0.55rem,0.92vw,0.7rem);color:var(--muted);letter-spacing:0.03em}
+.crumb{padding-right:0.8em;margin-right:0.8em;border-right:1px solid var(--rule-strong)}
+.crumb:last-child{border-right:0;margin-right:0;padding-right:0}
+.crumb.on{color:var(--ink);font-weight:700;position:relative}
+.crumb.on::after{content:'';position:absolute;left:0;right:0.8em;bottom:-0.45em;height:2px;background:var(--accent)}
+
+/* ---- type ---- */
+.kicker{font-family:var(--mono);font-size:clamp(0.6rem,1vw,0.74rem);letter-spacing:0.16em;text-transform:uppercase;color:var(--muted)}
+.eyebrow{font-family:var(--mono);font-size:clamp(0.58rem,0.95vw,0.72rem);letter-spacing:0.12em;text-transform:uppercase;color:var(--accent)}
+.section-marker{display:inline-flex;align-items:center;gap:0.4rem;font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.7rem);
+  font-weight:700;text-transform:uppercase;letter-spacing:0.12em;padding-bottom:0.35rem;border-bottom:2px solid var(--accent);color:var(--accent);align-self:flex-start}
+h1{font-family:var(--sans);font-weight:600;line-height:0.98;letter-spacing:-0.025em;font-size:clamp(2.5rem,7.5vw,5.6rem);color:var(--ink)}
+h2{font-family:var(--sans);font-weight:600;line-height:1.05;letter-spacing:-0.015em;font-size:clamp(1.55rem,4.2vw,2.9rem);color:var(--ink)}
+h2 em,h1 em{font-style:italic;font-weight:500;color:var(--accent)}
+h3{font-family:var(--sans);font-weight:600;font-size:clamp(1rem,2.2vw,1.5rem);letter-spacing:-0.01em}
+.sub{font-family:var(--sans);font-weight:400;font-size:clamp(0.84rem,1.5vw,1.08rem);color:var(--ink-soft);max-width:640px;line-height:1.6}
+.lede{font-family:var(--sans);font-weight:500;font-size:clamp(0.95rem,1.8vw,1.3rem);color:var(--ink);line-height:1.4}
+.label{font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.7rem);font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted)}
+
+/* ---- signature: key term = mono + red underline (NOT a pill) ---- */
+.term{font-family:var(--mono);font-size:0.84em;color:var(--ink);border-bottom:2px solid var(--accent);padding-bottom:0.02em;white-space:nowrap}
+.slide.invert .term{color:var(--paper)}
+.term.danger{color:var(--accent)}
+.hl{background:var(--accent-soft);color:var(--accent);padding:0.04em 0.32em;border-radius:2px;font-weight:600}
+.ink-mono{font-family:var(--mono);font-size:0.88em;background:rgba(0,0,0,0.06);padding:0.05em 0.35em;border-radius:2px}
+.slide.invert .ink-mono{background:rgba(255,255,255,0.1)}
+
+/* ---- bullets ---- */
+.bullets{list-style:none;display:flex;flex-direction:column;gap:clamp(0.3rem,0.7vh,0.5rem)}
+.bullets li{font-family:var(--sans);font-size:clamp(0.74rem,1.25vw,0.94rem);color:var(--ink);line-height:1.45;padding-left:1.35em;text-indent:-1.35em}
+.bullets li::before{content:'\2014';color:var(--accent);font-weight:700;margin-right:0.55em}
+.bullets li strong{font-weight:600}
+
+/* ---- two column ---- */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1rem,2.5vw,2rem);flex:1;min-height:0}
+@media(max-width:700px){.two-col{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:clamp(0.3rem,0.7vh,0.55rem);min-height:0}
+.col-label{font-family:var(--mono);font-size:clamp(0.55rem,0.85vw,0.68rem);font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
+
+/* ---- big question ---- */
+.big-q{font-family:var(--sans);font-weight:600;font-size:clamp(1.6rem,4.4vw,3.2rem);line-height:1.12;letter-spacing:-0.02em;color:var(--ink);max-width:20ch}
+.big-q .term{font-size:0.62em;vertical-align:0.12em}
+
+/* ---- spectrum axis ---- */
+.spectrum{margin-top:clamp(1rem,2.6vh,1.8rem);max-width:560px}
+.spectrum .axis{display:flex;align-items:center;gap:clamp(0.6rem,1.5vw,1.1rem)}
+.spectrum .end{font-family:var(--mono);font-size:clamp(0.6rem,1vw,0.74rem);color:var(--muted);white-space:nowrap}
+.spectrum .track{flex:1;height:1.5px;background:var(--ink);position:relative}
+.spectrum .track::before,.spectrum .track::after{content:'';position:absolute;top:-3px;width:1.5px;height:8px;background:var(--ink)}
+.spectrum .track::before{left:0}.spectrum .track::after{right:0}
+.spectrum .knob{position:absolute;left:80%;top:50%;width:11px;height:11px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%)}
+.spectrum .cap{font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.68rem);color:var(--muted);margin-top:0.6em;letter-spacing:0.04em}
+
+/* ---- callout ---- */
+.callout{display:flex;gap:clamp(0.4rem,0.9vw,0.65rem);padding:clamp(0.4rem,0.9vh,0.7rem) clamp(0.6rem,1.2vw,1rem);
+  border-radius:4px;border-left:3px solid;flex-shrink:0}
+.callout .ico{flex-shrink:0;width:clamp(0.95rem,1.4vw,1.15rem);height:clamp(0.95rem,1.4vw,1.15rem);margin-top:0.05em}
+.callout .ctxt{font-family:var(--sans);font-size:clamp(0.66rem,1.1vw,0.85rem);line-height:1.5;color:var(--ink)}
+.slide.invert .callout .ctxt{color:#e7e3d8}
+.callout.note{background:var(--paper2);border-color:var(--rule-strong)}
+.callout.danger{background:var(--accent-soft);border-color:var(--accent)}
+.callout.proof{background:var(--paper2);border-color:var(--ink)}
+
+/* ---- opencode AI prompt (terminal-style box) ---- */
+.prompt{background:var(--code-bg);border:1px solid rgba(255,255,255,0.08);border-left:3px solid var(--accent);border-radius:5px;padding:clamp(0.42rem,0.95vh,0.68rem) clamp(0.7rem,1.4vw,1.05rem)}
+.prompt .plabel{display:block;font-family:var(--mono);font-size:clamp(0.48rem,0.75vw,0.6rem);font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:0.3rem}
+.prompt .pcmd{display:block;font-family:var(--mono);font-size:clamp(0.6rem,1vw,0.78rem);color:#d8d4c8;line-height:1.7}
+.prompt .pcmd::before{content:'\276F  ';color:var(--accent);font-weight:700}
+
+/* ---- code ---- */
+.code-block{background:var(--code-bg);border:1px solid rgba(255,255,255,0.08);border-radius:5px;overflow:hidden;min-height:0}
+.code-header{display:flex;align-items:center;gap:5px;padding:clamp(0.28rem,0.5vh,0.4rem) clamp(0.5rem,1vw,0.8rem);
+  background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.06)}
+.code-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18)}
+.code-label{margin-left:auto;font-family:var(--mono);font-size:clamp(0.5rem,0.78vw,0.62rem);color:rgba(255,255,255,0.38)}
+.code-body{padding:clamp(0.5rem,1vh,0.85rem) clamp(0.7rem,1.3vw,1.1rem);font-family:var(--mono);
+  font-size:clamp(0.55rem,0.92vw,0.72rem);line-height:1.62;color:#d8d4c8;white-space:pre;overflow:hidden;text-align:left}
+.c{color:#76726a;font-style:italic}.k{color:#8fb3c7}.s{color:#c7a06a}.fn{color:#e6e1d4}
+.v{color:#b9c4cb}.g{color:#c7a06a}.n{color:#9ec1a8}.r{color:#e8604c;font-weight:700}.cm{color:#76726a}
+
+/* ---- ascii architecture ---- */
+.arch{font-family:var(--mono);font-size:clamp(0.5rem,0.85vw,0.68rem);color:var(--ink-soft);line-height:1.5;white-space:pre;
+  background:var(--paper2);border:1px solid var(--rule);border-radius:5px;padding:clamp(0.7rem,1.4vh,1.1rem) clamp(0.9rem,1.6vw,1.3rem);overflow:hidden}
+
+/* ---- HTML architecture diagram (overlap-proof; real boxes, content-sized center) ---- */
+.archviz{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:clamp(0.6rem,2vw,1.7rem);
+  width:100%;max-width:900px;margin:0 auto}
+.arch-node{min-width:0;border:1.5px solid var(--rule-strong);border-radius:8px;background:var(--paper2);
+  padding:clamp(0.55rem,1.3vh,0.95rem) clamp(0.7rem,1.5vw,1.15rem);display:flex;flex-direction:column;gap:0.3rem}
+.arch-node.tgt{border-color:var(--accent);background:var(--accent-soft)}
+.an-title{font-family:var(--mono);font-weight:700;font-size:clamp(0.56rem,0.95vw,0.74rem);letter-spacing:0.03em;text-align:center;color:var(--ink)}
+.arch-node.tgt .an-title{color:var(--accent)}
+.an-rule{border:0;border-top:1px solid var(--rule-strong);opacity:.6;margin:0.12rem 0 0.22rem}
+.arch-row{display:flex;justify-content:space-between;gap:0.8rem;font-family:var(--mono);font-size:clamp(0.56rem,0.98vw,0.74rem);color:var(--ink)}
+.arch-row .num{color:var(--muted);white-space:nowrap}
+.arch-line{font-family:var(--mono);font-size:clamp(0.56rem,0.98vw,0.74rem);color:var(--ink);line-height:1.5}
+.arch-foot{margin-top:0.32rem;font-family:var(--mono);font-size:clamp(0.5rem,0.84vw,0.64rem);font-style:italic;color:var(--muted);text-align:center}
+.arch-conn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.4rem;padding:0 clamp(0.1rem,0.8vw,0.5rem)}
+.ac-top{font-family:var(--mono);font-size:clamp(0.5rem,0.85vw,0.66rem);color:var(--accent);white-space:nowrap;letter-spacing:0.02em}
+.ac-arrow{align-self:stretch;height:2px;background:var(--accent);position:relative;min-width:clamp(64px,8vw,110px)}
+.ac-arrow::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+  border-left:7px solid var(--accent);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.ac-sub{font-family:var(--mono);font-size:clamp(0.46rem,0.78vw,0.6rem);color:var(--muted);white-space:nowrap}
+@media(max-width:680px){
+  .archviz{grid-template-columns:1fr;gap:0.6rem}
+  .ac-arrow{min-width:0;width:2px;height:26px;align-self:center}
+  .ac-arrow::after{right:auto;left:50%;top:auto;bottom:-1px;transform:translateX(-50%);
+    border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--accent);border-bottom:0}
+}
+
+/* ---- table ---- */
+.dtable{width:100%;border-collapse:collapse}
+.dtable th,.dtable td{font-family:var(--sans);font-size:clamp(0.62rem,1.05vw,0.84rem);
+  padding:clamp(0.22rem,0.5vh,0.42rem) clamp(0.4rem,0.9vw,0.75rem);text-align:left;border-bottom:1px solid var(--rule)}
+.dtable th{font-family:var(--mono);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;font-size:clamp(0.5rem,0.78vw,0.62rem);color:var(--muted)}
+.dtable td.num,.dtable th.num{font-family:var(--mono);text-align:right}
+.dtable tr:last-child td{border-bottom:0}
+.dtable .hot{color:var(--accent);font-weight:600}
+
+/* ---- big stat ---- */
+.stat{font-family:var(--mono);font-weight:700;font-size:clamp(1.5rem,3.6vw,2.7rem);line-height:1;color:var(--ink)}
+.stat.red{color:var(--accent)}
+.stat-label{font-family:var(--mono);font-size:clamp(0.55rem,0.85vw,0.68rem);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em}
+
+/* ---- margin definition ---- */
+.margin-def{position:absolute;right:clamp(0.6rem,1.5vw,1.4rem);max-width:clamp(115px,15vw,185px);
+  padding:clamp(0.3rem,0.6vh,0.45rem) clamp(0.4rem,0.8vw,0.6rem);background:var(--paper2);border-left:2px solid var(--accent);
+  border-radius:0 3px 3px 0;font-family:var(--sans);font-size:clamp(0.42rem,0.66vw,0.52rem);color:var(--ink-soft);line-height:1.42;z-index:4}
+.margin-def strong{display:block;font-family:var(--mono);color:var(--ink);font-size:clamp(0.46rem,0.72vw,0.56rem);margin-bottom:0.2em}
+
+/* ---- diagram strokes (SVG) ---- */
+.row-ink{fill:none;stroke:var(--ink);stroke-width:1.4}
+.row-red{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.4}
+.dg-line{stroke:var(--ink);stroke-width:1.4;fill:none}
+.dg-red{stroke:var(--accent);stroke-width:1.6;fill:none}
+.dg-node{fill:var(--paper);stroke:var(--ink);stroke-width:1.4}
+.dg-node-red{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.4}
+.dg-t{font-family:var(--mono);font-size:11px;fill:var(--ink);text-anchor:middle}
+.dg-cap{font-family:var(--mono);font-size:10px;fill:var(--ink-soft);text-anchor:middle;letter-spacing:0.03em}
+.dg-cap-red{font-family:var(--mono);font-size:10px;fill:var(--accent);text-anchor:middle;letter-spacing:0.03em}
+.slide.invert .dg-node{fill:var(--ink)}
+.slide.invert .row-ink{stroke:var(--paper)}.slide.invert .dg-line{stroke:var(--paper)}
+.slide.invert .dg-t{fill:var(--paper)}.slide.invert .dg-cap{fill:#b9b5a8}
+
+/* ---- footer meta ---- */
+.meta{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-family:var(--mono);
+  font-size:clamp(0.5rem,0.82vw,0.64rem);color:var(--muted);letter-spacing:0.03em}
+.meta span:nth-child(2){text-align:right;opacity:0.8}
+hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
+
+/* ---- reveal animation ---- */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.slide.visible .reveal{opacity:1;transform:none}
+.slide.visible .reveal:nth-child(1){transition-delay:.05s}
+.slide.visible .reveal:nth-child(2){transition-delay:.12s}
+.slide.visible .reveal:nth-child(3){transition-delay:.19s}
+.slide.visible .reveal:nth-child(4){transition-delay:.26s}
+.slide.visible .reveal:nth-child(5){transition-delay:.33s}
+.slide.visible .reveal:nth-child(6){transition-delay:.40s}
+.slide.visible .reveal:nth-child(7){transition-delay:.47s}
+
+/* ---- chrome: progress bar, nav dots ---- */
+.progress-bar{position:fixed;bottom:0;left:0;height:2px;background:var(--accent);z-index:200;width:0;transition:width .35s ease}
+.kbd-hint{position:fixed;bottom:clamp(0.5rem,1.2vh,0.9rem);left:50%;transform:translateX(-50%);font-family:var(--mono);
+  font-size:clamp(0.42rem,0.65vw,0.52rem);color:var(--muted);opacity:0.5;z-index:200}
+@media(max-height:600px){.kbd-hint{display:none}}
+@media (prefers-reduced-motion:reduce){.reveal{transition-duration:.2s}html{scroll-behavior:auto}}
+
+/* ---- title (slide 1) opening animation ---- */
+@keyframes titleRise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes drawUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes knobSlide{from{left:0}to{left:80%}}
+@keyframes flowRow{0%{transform:translateX(0);opacity:0}12%,88%{opacity:.12}100%{transform:translateX(122vw);opacity:0}}
+.flow-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.flow-bg .frow{position:absolute;height:7px;border-radius:3px;background:var(--accent);opacity:0;animation:flowRow 6s linear infinite}
+#s1 .crumbs,#s1 .slide-content,#s1 hr.rule,#s1 .meta{position:relative;z-index:1}
+#s1 .reveal{opacity:0;animation:titleRise .85s var(--ease) forwards}
+#s1 .crumbs.reveal{animation-delay:.05s}
+#s1 .eyebrow.reveal{animation-delay:.25s}
+#s1 h1.reveal{animation-delay:.4s}
+#s1 .sub.reveal{animation-delay:.7s}
+#s1 .spectrum.reveal{animation-delay:1.05s}
+#s1 .t-data{position:relative;white-space:nowrap}
+#s1 .t-data::after{content:'';position:absolute;left:0;right:-.04em;bottom:.04em;height:.085em;background:var(--accent);transform:scaleX(0);transform-origin:left;animation:drawUnderline .7s var(--ease) 1.2s forwards}
+#s1 .spectrum .knob{left:0;animation:knobSlide 1.2s var(--ease) 1.25s forwards}
+@media (prefers-reduced-motion:reduce){
+  #s1 .reveal,.flow-bg .frow,#s1 .t-data::after,#s1 .spectrum .knob{animation:none}
+  #s1 .reveal{opacity:1;transform:none}#s1 .t-data::after{transform:scaleX(1)}#s1 .spectrum .knob{left:80%}
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<span class="kbd-hint">&uarr; &darr; navigate</span>
+
+<!-- ════════════════════════════════════════════════════════════
+     LESSON 4 · BATCH ETL · "MOVE THE DATA"  (46 slides)
+     ════════════════════════════════════════════════════════════ -->
+
+<!-- ─── 01 · TITLE ─────────────────────────────────────── -->
+<section class="slide visible" id="s1">
+  <div class="flow-bg" aria-hidden="true">
+    <span class="frow" style="top:23%;width:18%;left:-25%;animation-duration:6.5s;animation-delay:-1s"></span>
+    <span class="frow" style="top:39%;width:13%;left:-25%;animation-duration:8s;animation-delay:-4s"></span>
+    <span class="frow" style="top:58%;width:22%;left:-25%;animation-duration:5.5s;animation-delay:-2.5s"></span>
+    <span class="frow" style="top:71%;width:11%;left:-25%;animation-duration:7.5s;animation-delay:-6s"></span>
+    <span class="frow" style="top:50%;width:16%;left:-25%;animation-duration:6.8s;animation-delay:-3.5s"></span>
+  </div>
+  <div class="crumbs reveal">
+    <span class="crumb">01 Storage</span>
+    <span class="crumb">02 Distribute</span>
+    <span class="crumb">03 OLAP</span>
+    <span class="crumb on">04 Batch ETL</span>
+  </div>
+  <div class="slide-content">
+    <div class="eyebrow reveal" style="margin-bottom:0.8rem;">On its messiest form</div>
+    <h1 class="reveal">Move the <span class="t-data">data</span>.</h1>
+    <p class="sub reveal" style="margin-top:clamp(0.9rem,2vh,1.4rem);">Extract, transform, load. The naive version fits on a napkin, <span class="term">SELECT</span> here, <span class="term">INSERT</span> there. This lesson is everything the napkin forgot: a pipeline you can re-run, recover, and trust at 3&nbsp;AM.</p>
+    <div class="spectrum reveal">
+      <div class="axis"><span class="end">naive</span><div class="track"><span class="knob"></span></div><span class="end">correct</span></div>
+      <div class="cap">&larr; where most pipelines start&nbsp;&nbsp;·&nbsp;&nbsp;where this lesson ends &rarr;</div>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>REAL-TIME DATA PROCESSING</span><span>Postgres &rarr; DuckDB · Airflow · Dagster</span></div>
+</section>
+
+<!-- ─── 02 · RECAP L3 → THE BRIDGE ─────────────────────── -->
+<section class="slide" id="s2">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--muted);border-color:var(--rule-strong);">Recap &middot; lesson 3</div>
+    <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Two worlds. One <em>gap</em>.</h2>
+    <div class="two-col reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;">
+      <div class="col">
+        <span class="col-label" style="color:var(--ink);">OLTP, where data is born</span>
+        <ul class="bullets">
+          <li><strong>Postgres</strong>, row-store: insert one order fast</li>
+          <li>B-tree point lookups, transactions, constraints</li>
+          <li>Terrible at &ldquo;scan 10M rows and aggregate&rdquo;</li>
+        </ul>
+      </div>
+      <div class="col">
+        <span class="col-label" style="color:var(--accent);">OLAP, where questions get answered</span>
+        <ul class="bullets">
+          <li><strong>DuckDB</strong>, column-store: scan + aggregate fast</li>
+          <li>Vectorized, compressed, <span class="term">10&times;+</span> on analytics</li>
+          <li>Terrible at single-row inserts &amp; lookups</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      <span class="ctxt">Your data is <strong>born in OLTP</strong> but analytics needs it in <strong>OLAP</strong>. Something has to move it across the gap, reliably, every day. That something is a <span class="term">data pipeline</span>, today, the classical <strong>batch</strong> kind.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>RECAP</span><span>OLTP &rarr; ??? &rarr; OLAP</span></div>
+</section>
+
+<!-- ─── 03 · THE NAIVE IDEA ────────────────────────────── -->
+<section class="slide" id="s3">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="eyebrow reveal">The whole job, supposedly</div>
+    <h2 class="reveal" style="margin-top:0.5rem;">&ldquo;Just move the data.&rdquo;</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;">Read yesterday&rsquo;s orders out of Postgres, aggregate, write the result to the warehouse. Three lines. Ship it.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">pipeline_naive.py, the napkin version</span></div>
+      <div class="code-body"><span class="cm"># extract: pull one day out of the OLTP source</span>
+rows = pg.<span class="fn">execute</span>(<span class="s">"SELECT id, amount, status, created_at "</span>
+                 <span class="s">"FROM orders WHERE created_at::date = %s"</span>, [day])
+duck.<span class="fn">register</span>(<span class="s">"raw"</span>, rows)          <span class="cm"># hand the rows to DuckDB as `raw`</span>
+
+<span class="cm"># transform + load: aggregate and append to the warehouse</span>
+duck.<span class="fn">execute</span>(<span class="s">"INSERT INTO daily_revenue "</span>
+             <span class="s">"SELECT %s, status, SUM(amount), COUNT(*) "</span>
+             <span class="s">"FROM raw GROUP BY status"</span>, [day])</div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt">This runs. It even produces correct numbers&hellip; <strong>the first time.</strong> Then reality shows up.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>PHASE 0</span><span>extract &rarr; transform &rarr; load</span></div>
+</section>
+
+<!-- ─── 03b · AI WRITES THE NAPKIN ────────────────────── -->
+<section class="slide" id="s4">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="eyebrow reveal">Your sharpest tool</div>
+    <h2 class="reveal" style="margin-top:0.5rem;">AI writes the napkin.<br>You write the <em>pipeline</em>.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:660px;">That three-line napkin? <span class="ink-mono">opencode</span> writes it from one prompt, along with most of the boilerplate this lesson touches. The judgment it <em>won&rsquo;t</em> supply unless you ask is the whole job.</p>
+    <div class="prompt reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:720px;">
+      <span class="plabel">opencode</span>
+      <span class="pcmd">scaffold a Postgres &rarr; DuckDB daily-revenue ETL</span>
+    </div>
+    <div class="two-col reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);flex:unset;gap:clamp(0.8rem,2.5vw,2rem);">
+      <div class="col">
+        <span class="col-label" style="color:var(--ink);">AI hands you, in seconds</span>
+        <ul class="bullets" style="gap:0.3rem;"><li>The extract / transform / load skeleton</li><li>Boilerplate SQL &amp; configs</li><li>Seed data, tests, docstrings</li></ul>
+      </div>
+      <div class="col">
+        <span class="col-label" style="color:var(--accent);">What stays yours</span>
+        <ul class="bullets" style="gap:0.3rem;"><li>Idempotency &amp; recovery</li><li>SCD2 &amp; the schema contract</li><li>Knowing <em>which</em> applies, and verifying it</li></ul>
+      </div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.9 5.8L20 10l-5.1 1.2L13 17l-1.9-5.8L6 10l5.1-1.2z"/></svg>
+      <span class="ctxt">Use it all hour, to draft, translate, and debug. Just stay the one who knows which half is yours. Step-by-step prompts are in the annex.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>AI IN THE LOOP</span><span>napkin = AI &middot; pipeline = you</span></div>
+</section>
+
+<!-- ─── 04 · FOUR WAYS IT BREAKS (HOOK) ────────────────── -->
+<section class="slide invert" id="s5">
+  <div class="slide-content" style="max-width:min(92vw,960px);margin:0 auto;">
+    <div class="eyebrow reveal" style="color:var(--accent);">Run it twice</div>
+    <h2 class="big-q reveal" style="margin-top:0.6rem;max-width:24ch;">Four things the napkin forgot.</h2>
+    <div class="two-col reveal" style="margin-top:clamp(0.8rem,2vh,1.4rem);flex:unset;gap:clamp(0.6rem,2vw,1.6rem);">
+      <div class="col" style="gap:0.7rem;">
+        <div class="callout note"><span class="ctxt"><strong style="color:var(--accent);">01 &nbsp;Re-runs duplicate.</strong><br>The scheduler retries at 3 AM. Now every row is in there twice. &rarr; <span class="term">idempotency</span></span></div>
+        <div class="callout note"><span class="ctxt"><strong style="color:var(--accent);">02 &nbsp;It crashes mid-load.</strong><br>Network blips after 4 of 7 writes. Half a day is loaded. &rarr; <span class="term">recovery</span></span></div>
+      </div>
+      <div class="col" style="gap:0.7rem;">
+        <div class="callout note"><span class="ctxt"><strong style="color:var(--accent);">03 &nbsp;A customer moves city.</strong><br>The dimension changed. Old facts now point at the wrong place. &rarr; <span class="term">SCD</span></span></div>
+        <div class="callout note"><span class="ctxt"><strong style="color:var(--accent);">04 &nbsp;Someone renames a column.</strong><br>Upstream ships a schema change. Your job fails silently. &rarr; <span class="term">schema drift</span></span></div>
+      </div>
+    </div>
+    <p class="sub reveal" style="margin-top:clamp(0.7rem,1.6vh,1.1rem);color:#b9b5a8;">Four problems. We defeat each one in turn, then build the whole thing by hand.</p>
+  </div>
+  <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>THE HOOK</span><span>idempotency · recovery · SCD · schema</span></div>
+</section>
+
+<!-- ─── 05 · ETL vs ELT ────────────────────────────────── -->
+<section class="slide" id="s6">
+  <div class="margin-def reveal" style="top:30%;">
+    <strong>ETL</strong>Transform <em>before</em> load. Classic; needs a compute step in the middle.
+  </div>
+  <div class="margin-def reveal" style="top:53%;">
+    <strong>ELT</strong>Load raw, transform <em>in</em> the warehouse. Modern; leans on cheap columnar compute.
+  </div>
+  <div class="slide-content" style="max-width:min(92vw,820px);margin:0 auto;">
+    <div class="section-marker reveal">Vocabulary</div>
+    <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Where does the <em>T</em> happen?</h2>
+    <ul class="bullets reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);max-width:600px;">
+      <li><strong>ETL:</strong> extract &rarr; <span class="hl">transform</span> &rarr; load. The shape every textbook draws.</li>
+      <li><strong>ELT:</strong> extract &rarr; load &rarr; <span class="hl">transform</span>. The shape the cloud warehouse era made cheap.</li>
+    </ul>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span class="ctxt"><strong>Our pipeline is a hybrid.</strong> We <em>extract</em> with <span class="ink-mono">psycopg</span>, then <em>transform and load</em> inside <span class="ink-mono">DuckDB</span>: ELT-style performance from a technically-ETL shape. The label matters less than the four problems, which are universal.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ETL vs ELT</span><span>extract · transform · load</span></div>
+</section>
+
+<!-- ─── 05b · ETL/ELT HISTORY ─────────────────────────── -->
+<section class="slide" id="s46">
+  <div class="slide-content" style="max-width:min(92vw,960px);margin:0 auto;">
+    <div class="section-marker reveal">ETL vs ELT &middot; a short history</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Load-first came <em>first</em>.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">The order keeps flipping with the cost of compute and storage. Three eras, and the reason each one won:</p>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <thead><tr><th>Era</th><th>Shape</th><th>How it worked</th><th>Why it won</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1990s</strong></td><td>ELT <span style="color:var(--muted);">(before the term)</span></td><td>Load flat files to staging, transform in the warehouse</td><td>Only option; staging was expensive, deleted after use</td></tr>
+        <tr class="hot"><td><strong>2000s</strong></td><td>ETL</td><td>An integration server (Informatica, etc.) transforms in memory before load</td><td>Killed staging contention; visual drag-and-drop over SQL</td></tr>
+        <tr><td><strong>2010s+</strong></td><td>ELT</td><td>Cheap cloud storage; transform in-warehouse with dbt (SQL + Jinja)</td><td>Compute / storage split, separate clusters, raw data stays</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span class="ctxt"><strong>Counterintuitive, but real:</strong> load-then-transform predates the dedicated ETL tools most people assume came first. The cloud didn&rsquo;t invent ELT, it made it cheap again. The pendulum tracks one thing: where compute is cheapest to run.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ETL vs ELT</span><span>load-first, then transform-first, then back</span></div>
+</section>
+
+<!-- ─── 06 · ARCHITECTURE ──────────────────────────────── -->
+<section class="slide" id="s7">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">The stack we&rsquo;ll build</div>
+    <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Source, target, and the job between.</h2>
+    <div class="reveal" style="margin-top:clamp(0.6rem,1.6vh,1.1rem);">
+    <div class="archviz">
+      <div class="arch-node">
+        <div class="an-title">OLTP SOURCE &middot; Postgres</div>
+        <div class="an-rule"></div>
+        <div class="arch-row"><span>orders</span><span class="num">1,000,000 rows</span></div>
+        <div class="arch-row"><span>customers</span><span class="num">50,000 rows</span></div>
+        <div class="arch-foot">row-store, born here</div>
+      </div>
+      <div class="arch-conn">
+        <div class="ac-top">extract &middot; transform &middot; load</div>
+        <div class="ac-arrow"></div>
+        <div class="ac-sub">re-runnable &middot; idempotent</div>
+      </div>
+      <div class="arch-node tgt">
+        <div class="an-title">ANALYTICAL TARGET &middot; DuckDB</div>
+        <div class="an-rule"></div>
+        <div class="arch-line">daily_revenue</div>
+        <div class="arch-line">customers_dim (SCD2)</div>
+        <div class="arch-line">pipeline_metadata (watermark)</div>
+        <div class="arch-foot">column-store, questioned here</div>
+      </div>
+    </div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt"><strong>DuckDB is single-writer.</strong> One process holds the write lock at a time, the runner, Airflow, and Dagster all target the same file. Remember this; it bites everyone once.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ARCHITECTURE</span><span>Postgres &rarr; DuckDB</span></div>
+</section>
+
+<!-- ─── BUILD-IT-BY-HAND DIVIDER ───────────────────────── -->
+<section class="slide invert" id="s19">
+  <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(92vw,760px);margin:0 auto;">
+    <div class="kicker reveal" style="color:var(--accent);">Part one</div>
+    <h2 class="reveal" style="font-size:clamp(2rem,5.5vw,3.6rem);margin-top:0.6rem;">Build it by hand.</h2>
+    <p class="sub reveal" style="margin-top:clamp(0.8rem,1.8vh,1.3rem);max-width:560px;">No frameworks yet. Raw Python against real Postgres and DuckDB, so when a framework &ldquo;does it for you,&rdquo; you know exactly what <em>it</em> is.</p>
+    <div class="spectrum reveal" style="margin-top:clamp(1rem,2.4vh,1.6rem);width:min(80vw,440px);">
+      <div class="axis"><span class="end" style="color:#9a968b;">naive</span><div class="track" style="background:var(--paper);"><span class="knob"></span></div><span class="end" style="color:#9a968b;">idempotent</span></div>
+    </div>
+  </div>
+  <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>BUILD IT BY HAND</span><span>raw python · Postgres &rarr; DuckDB</span></div>
+</section>
+
+<!-- ─── 19 · THE STACK / SETUP ─────────────────────────── -->
+<section class="slide" id="s20">
+  <div class="slide-content" style="max-width:min(92vw,860px);margin:0 auto;">
+    <div class="section-marker reveal">Setup</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">One command up. One source. One target.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;">Docker Compose brings up Postgres (and the orchestrators). Everything else is a plain Python script you run with <span class="ink-mono">uv</span>, no build tool to learn.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+      <div class="code-body"><span class="v">$</span> docker compose up -d                  <span class="cm"># postgres + airflow + dagster</span>
+<span class="v">$</span> uv run python src/seed_data.py        <span class="cm"># 1M orders · 50k · 90 days</span>
+<span class="v">$</span> uv run python src/prove_idempotent.py 2024-01-15
+<span class="v">$</span> uv run python src/pipeline_failure.py 2024-01-15 --fail-prob 0.4</div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+      <span class="ctxt">Every demo is <span class="ink-mono">uv run python src/&lt;script&gt;.py</span>, <span class="ink-mono">uv</span> builds the venv and installs deps on first run. Drive it with <span class="ink-mono">opencode</span>, prompts in the annex.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ENVIRONMENT</span><span>docker compose &middot; uv run</span></div>
+</section>
+
+<!-- ─── 20 · SEED THE SOURCE ───────────────────────────── -->
+<section class="slide" id="s21">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Live &middot; seed_data.py</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">A million orders to move.</h2>
+    <div class="reveal" style="display:flex;gap:clamp(1.2rem,4vw,3rem);flex-wrap:wrap;margin-top:clamp(0.6rem,1.5vh,1.1rem);">
+      <div><div class="stat">1,000,000</div><div class="stat-label">orders · 90 days</div></div>
+      <div><div class="stat">50,000</div><div class="stat-label">customers</div></div>
+      <div><div class="stat red">1.8s</div><div class="stat-label">558,886 orders/sec</div></div>
+    </div>
+    <div class="code-block reveal" style="margin-top:clamp(0.6rem,1.5vh,1rem);flex:unset;max-width:680px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/seed_data.py</span></div>
+      <div class="code-body"><span class="cm">Seeding OLTP source (Postgres)...</span>
+  customers: <span class="g">50,000</span>
+  orders:    <span class="g">1,000,000</span> across 90 days from 2024-01-01
+  <span class="n">Done in 1.8s (558,886 orders/sec)</span></div>
+    </div>
+    <p class="sub reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);">Realistic shape: a power-law on customers, weekend dips, a few statuses. Now, let&rsquo;s break a pipeline.</p>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SEED</span><span>1M orders · 50k customers</span></div>
+</section>
+
+<!-- ─── 21 · EXTRACT + TRANSFORM ──────────────────────── -->
+<section class="slide" id="s22">
+  <div class="margin-def reveal" style="top:30%;">
+    <strong>Partition boundary</strong><span class="ink-mono">created_at::date</span> resolves in the <em>session</em> timezone. The same <span class="ink-mono">timestamptz</span> can land on a different day under UTC vs local, so pin the zone for a reproducible backfill. (<span class="ink-mono">experiment_timezone.py</span>)
+  </div>
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Extract &amp; transform</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Pull a day. Aggregate it.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:640px;">The obvious way: read one day of orders out of Postgres, hand the rows to DuckDB, let it do the <span class="ink-mono">GROUP BY</span>. Boring on purpose, every step stays visible.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">pipeline_naive.py, extract() + transform()</span></div>
+      <div class="code-body"><span class="cm"># EXTRACT: one day, explicit columns (never SELECT *)</span>
+rows = pg.<span class="fn">execute</span>(<span class="s">"SELECT id, customer_id, amount, status, created_at "</span>
+                 <span class="s">"FROM orders WHERE created_at::date = %s"</span>, [day])
+
+<span class="cm"># TRANSFORM: push the GROUP BY into DuckDB</span>
+agg = duck.<span class="fn">execute</span>(<span class="s">"SELECT ?::DATE, status, SUM(amount), COUNT(*), "</span>
+                   <span class="s">"ROUND(AVG(amount),2) FROM raw GROUP BY status"</span>, [day])</div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      <span class="ctxt">We pull the day into Python so each stage is legible. The frameworks (later) stage via Parquet instead, same three stages. The one thing that carries over <strong>unchanged</strong> is the <em>load</em>. That&rsquo;s where all four problems live.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>EXTRACT &middot; TRANSFORM</span><span>psycopg &rarr; DuckDB GROUP BY</span></div>
+</section>
+
+<!-- ─── 07 · IDEMPOTENCY (DEF + ROW-STACK) ─────────────── -->
+<section class="slide" id="s8">
+  <div class="margin-def reveal" style="top:28%;">
+    <strong>Idempotent</strong>An operation you can apply many times with the same result as applying it once. f(f(x)) = f(x).
+  </div>
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 01 &middot; Idempotency</div>
+    <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Run it three times.<br>Same <em>state</em>.</h2>
+    <div class="reveal" style="display:grid;grid-template-columns:minmax(0,0.95fr) minmax(0,1.05fr);gap:clamp(1.2rem,3.5vw,3rem);align-items:center;margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <p class="sub">The scheduler <em>will</em> re-run your job, retries, backfills, a nervous engineer hitting the button. The naive load appends blindly: three runs, triple the rows, and a revenue number that quietly lies.</p>
+      <svg viewBox="0 0 460 220" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:42vh;">
+        <text class="dg-cap" x="96" y="44" style="font-weight:700;">idempotent load</text>
+        <rect class="row-ink" x="36" y="118" width="120" height="16" rx="2"/>
+        <rect class="row-ink" x="36" y="98" width="120" height="16" rx="2"/>
+        <rect class="row-ink" x="36" y="78" width="120" height="16" rx="2"/>
+        <text style="font-family:var(--mono);font-size:17px;fill:var(--accent);" x="166" y="92">&#10003;</text>
+        <text class="dg-cap" x="96" y="158">Before: 3 rows</text>
+        <text class="dg-cap" x="96" y="174">After: 3 rows (no change)</text>
+
+        <text class="dg-cap-red" x="360" y="44" style="font-weight:700;">naive load</text>
+        <rect class="row-red" x="300" y="180" width="120" height="13" rx="2"/>
+        <rect class="row-red" x="300" y="165" width="120" height="13" rx="2"/>
+        <rect class="row-red" x="300" y="150" width="120" height="13" rx="2"/>
+        <rect class="row-red" x="300" y="135" width="120" height="13" rx="2"/>
+        <rect class="row-red" x="300" y="120" width="120" height="13" rx="2"/>
+        <rect class="row-red" x="300" y="105" width="120" height="13" rx="2"/>
+        <rect class="row-red" x="300" y="90" width="120" height="13" rx="2"/>
+        <rect class="row-red" x="300" y="75" width="120" height="13" rx="2"/>
+        <rect class="row-red" x="300" y="60" width="120" height="13" rx="2"/>
+        <text class="dg-cap-red" x="360" y="208">Before: 3 &rarr; After: 9</text>
+        <text class="dg-cap-red" x="360" y="223" style="font-size:13px;">DUPLICATION: +3 rows / run</text>
+      </svg>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>IDEMPOTENCY</span><span>same inputs &rarr; same state</span></div>
+</section>
+
+<!-- ─── 08 · STRATEGY 1: DELETE + INSERT ───────────────── -->
+<section class="slide" id="s9">
+  <div class="margin-def reveal" style="top:26%;">
+    <strong>Partition replacement</strong>Delete the slice you&rsquo;re about to rewrite, then insert it fresh. Re-running just rewrites the same slice.
+  </div>
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Fix 01a</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Strategy 1, <em>DELETE + INSERT</em></h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);flex:unset;max-width:740px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">pipeline_idempotent.py</span></div>
+      <div class="code-body">con.<span class="fn">execute</span>(<span class="r">"BEGIN TRANSACTION"</span>)
+<span class="k">try</span>:
+    con.<span class="fn">execute</span>(<span class="s">"DELETE FROM daily_revenue WHERE date = ?"</span>, [day])
+    <span class="k">for</span> r <span class="k">in</span> rows:
+        con.<span class="fn">execute</span>(<span class="s">"INSERT INTO daily_revenue VALUES (?,?,?,?,?,?)"</span>, r)
+    con.<span class="fn">execute</span>(<span class="r">"COMMIT"</span>)        <span class="cm"># both steps land together…</span>
+<span class="k">except</span> Exception:
+    con.<span class="fn">execute</span>(<span class="r">"ROLLBACK"</span>); <span class="k">raise</span>   <span class="cm"># …or neither does</span></div>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt"><strong>Works without a primary key.</strong> You define the &ldquo;partition&rdquo; (here, one <span class="ink-mono">date</span>) and replace it wholesale. The most robust default.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>IDEMPOTENT LOAD</span><span>delete-insert</span></div>
+</section>
+
+<!-- ─── 09 · STRATEGY 2: UPSERT ────────────────────────── -->
+<section class="slide" id="s10">
+  <div class="margin-def reveal" style="top:28%;">
+    <strong>UPSERT</strong>Insert, but on a key collision overwrite the existing row. One statement, no explicit delete.
+  </div>
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Fix 01b</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Strategy 2, <em>UPSERT</em></h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);flex:unset;max-width:740px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">pipeline_idempotent.py, load_upsert</span></div>
+      <div class="code-body">con.<span class="fn">execute</span>(<span class="s">"""</span>
+<span class="s">    INSERT OR REPLACE INTO daily_revenue_keyed</span>
+<span class="s">      (date, status, total_revenue, order_count, avg_order_value, loaded_at)</span>
+<span class="s">    VALUES (?, ?, ?, ?, ?, ?)</span>
+<span class="s">"""</span>, row)   <span class="cm"># re-inserting the same key overwrites in place</span></div>
+    </div>
+    <div class="code-block reveal" style="margin-top:clamp(0.3rem,0.8vh,0.5rem);flex:unset;max-width:600px;font-size:0.85em;">
+      <div class="code-body"><span class="v">$</span> uv run src/pipeline_idempotent.py 2024-01-15 --strategy upsert</div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt"><strong>UPSERT needs a key.</strong> It targets <span class="ink-mono">daily_revenue_keyed</span>, which declares <span class="term">PRIMARY KEY (date, status)</span>, the conflict target. No key, no &ldquo;replace.&rdquo;</span>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt"><strong>UPSERT only touches keys that reappear.</strong> If a status drops out of a day&rsquo;s data, its stale row <em>survives</em>, an orphaned key. <span class="ink-mono">DELETE + INSERT</span> rewrites the whole partition, so it clears vanished keys too. That&rsquo;s why it&rsquo;s the safer default; <span class="ink-mono">experiment_upsert_gap.py</span> proves the difference.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>IDEMPOTENT LOAD</span><span>insert-or-replace · orphaned keys</span></div>
+</section>
+
+<!-- ─── 22 · NAIVE LOAD BREAKS (LIVE) ─────────────────── -->
+<section class="slide" id="s23">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 01 &middot; live</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">The naive load <em>grows</em>.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">The load is a blind <span class="ink-mono">INSERT</span> loop, no DELETE, no key. Run the same day three times and watch the proof harness:</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:660px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/prove_idempotent.py --loader naive</span></div>
+      <div class="code-body"><span class="cm">run   rows   checksum</span>
+ 1     <span class="g">3</span>      b04a42b3c882
+ 2     <span class="r">6</span>      da58b0d4b47f
+ 3     <span class="r">9</span>      593f71c60c10
+
+<span class="r">NOT IDEMPOTENT: 3 distinct states across 3 runs.</span></div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt">Every retry appends another full day. The checksum changes because the <strong>revenue triples</strong>, a number that quietly lies.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>NAIVE LOAD</span><span>blind INSERT &rarr; duplicates</span></div>
+</section>
+
+<!-- ─── 23 · IDEMPOTENT PROOF (LIVE) ──────────────────── -->
+<section class="slide" id="s24">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Fix 01 &middot; live</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Same inputs. <em>Same state.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">Swap the blind INSERT for the <span class="ink-mono">DELETE + INSERT</span> in one transaction. Re-run the same three times:</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:620px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/prove_idempotent.py 2024-01-15</span></div>
+      <div class="code-body"><span class="cm">run   rows   checksum</span>
+ 1     3      <span class="n">b04a42b3c882</span>
+ 2     3      <span class="n">b04a42b3c882</span>
+ 3     3      <span class="n">b04a42b3c882</span>
+
+<span class="n">IDEMPOTENT: all 3 runs produced identical state (3 rows).</span></div>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">Identical checksum, every run. The DELETE makes a re-run a <strong>no-op</strong>, the partition is replaced with the same bytes. This is the deliverable standard: <span class="ink-mono">prove_idempotent.py</span>.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>IDEMPOTENT LOAD</span><span>identical checksum &times;3</span></div>
+</section>
+
+<!-- ─── 10 · THE TRANSACTION IS THE POINT ──────────────── -->
+<section class="slide" id="s11">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 02 &middot; Recovery</div>
+    <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">The trick is the <em>transaction</em>.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;">DELETE then INSERT looks safe, until it crashes <em>after</em> the delete. Without a transaction, you&rsquo;ve just emptied yesterday&rsquo;s revenue and written nothing back. That&rsquo;s the crash-mid-load failure, and the transaction is how you <em>recover</em> from it.</p>
+    <div class="reveal" style="margin-top:clamp(0.6rem,1.6vh,1.1rem);display:flex;justify-content:center;">
+    <svg viewBox="0 0 880 200" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:860px;height:auto;max-height:42vh;">
+      <!-- commit path -->
+      <line x1="64" y1="56" x2="489" y2="56" class="dg-line"/>
+      <line x1="506" y1="56" x2="600" y2="56" class="dg-red"/>
+      <path d="M600 56 l-11 -5 l0 10 z" fill="var(--accent)"/>
+      <circle class="dg-node" cx="64" cy="56" r="6"/>
+      <circle class="dg-node" cx="208" cy="56" r="6"/>
+      <circle class="dg-node" cx="352" cy="56" r="6"/>
+      <circle cx="496" cy="56" r="7" fill="var(--accent)" stroke="var(--accent)"/>
+      <text class="dg-cap" x="64" y="38">BEGIN</text>
+      <text class="dg-cap" x="208" y="38">DELETE</text>
+      <text class="dg-cap" x="352" y="38">INSERT&times;N</text>
+      <text class="dg-cap-red" x="496" y="38" style="font-weight:700;">COMMIT</text>
+      <text class="dg-cap" x="624" y="60" text-anchor="start" style="font-weight:700;">&#10003; new partition</text>
+
+      <!-- rollback path -->
+      <line x1="64" y1="150" x2="352" y2="150" class="dg-line"/>
+      <line x1="352" y1="150" x2="489" y2="150" class="dg-red" style="stroke-dasharray:4 3;"/>
+      <line x1="506" y1="150" x2="600" y2="150" class="dg-line"/>
+      <path d="M600 150 l-11 -5 l0 10 z" fill="var(--ink)"/>
+      <circle class="dg-node" cx="64" cy="150" r="6"/>
+      <circle class="dg-node" cx="208" cy="150" r="6"/>
+      <circle class="dg-node" cx="352" cy="150" r="6"/>
+      <circle cx="496" cy="150" r="7" fill="var(--accent)" stroke="var(--accent)"/>
+      <text class="dg-cap" x="64" y="132">BEGIN</text>
+      <text class="dg-cap" x="208" y="132">DELETE</text>
+      <text class="dg-cap" x="352" y="132">INSERT</text>
+      <text class="dg-cap-red" x="496" y="132" style="font-weight:700;">ROLLBACK</text>
+      <text style="font-family:var(--mono);font-size:13px;fill:var(--accent);" x="424" y="170" text-anchor="middle">&#10007; crash</text>
+      <text class="dg-cap" x="624" y="154" text-anchor="start" style="font-weight:700;">&#10003; old partition</text>
+    </svg>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">DELETE, every INSERT, and (later) the watermark write <strong>share one transaction</strong>. Either the whole new state commits, or the old state survives untouched. <em>That</em> is what makes a re-run safe.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ATOMICITY</span><span>all-or-nothing</span></div>
+</section>
+
+<!-- ─── 24 · FAILURE + RETRY (LIVE) ───────────────────── -->
+<section class="slide" id="s25">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 02 &middot; live</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Crash mid-load. Retry. <em>No corruption.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:640px;">Inject a random crash inside the INSERT loop, wrap the load in a retry. Because the load is idempotent, retrying is <em>safe</em>, not a duplication machine.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/pipeline_failure.py --fail-prob 0.4</span></div>
+      <div class="code-body">Attempt 1/8   <span class="r">FAILURE: crash after 1 of 3 rows, rolled back, target unchanged</span>
+Attempt 2/8   <span class="r">FAILURE: crash after 2 of 3 rows, rolled back, target unchanged</span>
+Attempt 3/8   <span class="n">Success on attempt 3 (3 rows)</span></div>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">Two crashes, zero corruption. Each failed attempt <span class="ink-mono">ROLLBACK</span>s the DELETE too, the target is byte-for-byte its old self until a clean COMMIT. <strong>Retries without idempotency just duplicate faster.</strong></span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>FAILURE RECOVERY</span><span>rollback + retry</span></div>
+</section>
+
+<!-- ─── 25 · WATERMARK (LIVE) ─────────────────────────── -->
+<section class="slide" id="s26">
+  <div class="margin-def reveal" style="top:24%;">
+    <strong>Watermark</strong>A durable record of which partitions finished. A re-run skips them; a backfill fills the gaps. (Not the <em>event-time</em> watermark of streaming: same word, different idea. That one&rsquo;s in L5.)
+  </div>
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 02 &middot; Recovery, at range scale</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Load a range. Skip what&rsquo;s done.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:560px;">Recovery scales from one date to a whole range: a <span class="ink-mono">pipeline_metadata</span> ledger records each finished date, so a crash partway through a backfill just resumes. Run the same range twice:</p>
+    <div class="two-col reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);flex:unset;gap:clamp(0.8rem,2vw,1.4rem);">
+      <div class="code-block" style="flex:unset;">
+        <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">run 1 &middot; 01-10 .. 01-20</span></div>
+        <div class="code-body"><span class="cm">2024-01-10</span>  <span class="n">loaded 3 (11,112)</span>
+<span class="cm">2024-01-11</span>  <span class="n">loaded 3 (11,032)</span>
+   &hellip;          &hellip;
+<span class="cm">2024-01-20</span>  <span class="n">loaded 3 (11,239)</span></div>
+      </div>
+      <div class="code-block" style="flex:unset;">
+        <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">run 2 &middot; same range</span></div>
+        <div class="code-body"><span class="cm">2024-01-10</span>  <span class="g">skip (watermark)</span>
+<span class="cm">2024-01-11</span>  <span class="g">skip (watermark)</span>
+   &hellip;          &hellip;
+<span class="cm">2024-01-20</span>  <span class="g">skip (watermark)</span></div>
+      </div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span class="ctxt">11 dates loaded, then 11 skipped. <span class="ink-mono">--force</span> reprocesses anyway, and that&rsquo;s safe, because the load underneath is idempotent.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>WATERMARK</span><span>load once &middot; skip &middot; backfill gaps</span></div>
+</section>
+
+<!-- ─── 26 · ATOMIC WATERMARK (THE TRAP) ──────────────── -->
+<section class="slide" id="s27">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--accent);border-color:var(--accent);">The subtlety that bites</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">&ldquo;Loaded&rdquo; and &ldquo;recorded as loaded&rdquo; are <em>one</em> fact.</h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">pipeline_watermark.py, load_and_mark()</span></div>
+      <div class="code-body">con.<span class="fn">execute</span>(<span class="r">"BEGIN TRANSACTION"</span>)
+con.<span class="fn">execute</span>(<span class="s">"DELETE FROM daily_revenue WHERE date = ?"</span>, [day])
+<span class="cm"># ... INSERT the day's rows ...</span>
+con.<span class="fn">execute</span>(<span class="s">"INSERT OR REPLACE INTO pipeline_metadata ..."</span>)   <span class="cm"># the mark</span>
+con.<span class="fn">execute</span>(<span class="r">"COMMIT"</span>)    <span class="cm"># data + watermark land together, or not at all</span></div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt"><strong>Mark after a separate commit</strong> &rarr; crash in between &rarr; date looks unloaded, silently reloads. <strong>Mark before the data commits</strong> &rarr; date looks done but has no data. Both are silent corruption. One transaction erases the gap, exactly what an orchestrator&rsquo;s metadata DB does for you.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ATOMIC WATERMARK</span><span>data + metadata in one txn</span></div>
+</section>
+
+<!-- ─── 11 · SCD: THE PROBLEM ──────────────────────────── -->
+<section class="slide" id="s12">
+  <div class="margin-def reveal" style="top:30%;">
+    <strong>Dimension</strong>Descriptive context for facts, who/where/what. Unlike facts, dimensions mutate over time.
+  </div>
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 03 &middot; Slowly Changing Dimensions</div>
+    <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">The dimension that won&rsquo;t <em>sit still</em>.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">Facts are immutable, an order happened, for $42, on the 15th. But the <strong>customer</strong> behind it changes: they move from Chicago to LA.</p>
+    <ul class="bullets reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);max-width:640px;">
+      <li><strong>Overwrite it,</strong> and every <em>past</em> order suddenly looks like it came from LA. History rewritten.</li>
+      <li><strong>Ignore it,</strong> and new orders are tagged with a stale city. Present wrong.</li>
+      <li>You need to answer <span class="hl">&ldquo;where did this customer live <em>when</em> the order happened?&rdquo;</span></li>
+    </ul>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCD</span><span>dimensions mutate</span></div>
+</section>
+
+<!-- ─── 12 · SCD TYPES 1/2/3 ───────────────────────────── -->
+<section class="slide" id="s13">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Three ways to remember</div>
+    <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Type 1, 2, 3.</h2>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <thead><tr><th>Type</th><th>Strategy</th><th>History</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Type 1</strong></td><td>Overwrite in place</td><td>None, past is rewritten</td><td>Cheapest</td></tr>
+        <tr class="hot"><td><strong>Type 2</strong></td><td>New row + validity window</td><td>Full, every version kept</td><td>More rows, more logic</td></tr>
+        <tr><td><strong>Type 3</strong></td><td>&ldquo;previous value&rdquo; column</td><td>Last change only</td><td>Limited, awkward</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 8v8M8 12h8"/><circle cx="12" cy="12" r="9"/></svg>
+      <span class="ctxt"><strong>Type 2 is the workhorse.</strong> It&rsquo;s the only one that answers &ldquo;as of when?&rdquo;, so it&rsquo;s what we build. The price: your dimension grows a row every time an attribute changes.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCD TYPES</span><span>1 overwrite · 2 version · 3 prior-col</span></div>
+</section>
+
+<!-- ─── 13 · SCD2 IN PRACTICE ──────────────────────────── -->
+<section class="slide" id="s14">
+  <div class="slide-content" style="max-width:min(92vw,920px);margin:0 auto;">
+    <div class="section-marker reveal">SCD Type 2 &middot; the shape</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Expire the old row. Open a new one.</h2>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);">
+      <thead><tr><th>customer_id</th><th>city</th><th>valid_from</th><th>valid_to</th><th>is_current</th></tr></thead>
+      <tbody>
+        <tr><td>2530</td><td>Chicago</td><td>2020-10-26</td><td class="hot">2024-03-15</td><td>false</td></tr>
+        <tr class="hot"><td>2530</td><td>LA</td><td>2024-03-15</td><td>9999-12-31</td><td>true</td></tr>
+      </tbody>
+    </table>
+    <div class="callout proof reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">The merge <strong>closes</strong> the changed row (<span class="ink-mono">valid_to = effective_date</span>, <span class="ink-mono">is_current = false</span>) and <strong>opens</strong> a new one. Facts join on the window that contains their timestamp, correct city, every time.</span>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.3 2.6L3 8"/><path d="M3 3v5h5"/></svg>
+      <span class="ctxt"><strong>The merge is idempotent too.</strong> Re-run it with no source change and it detects zero diffs, a clean no-op.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCD2</span><span>valid_from · valid_to · is_current</span></div>
+</section>
+
+<!-- ─── 28 · SCD2 (LIVE) ──────────────────────────────── -->
+<section class="slide" id="s29">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 03 &middot; live</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Customer 42 moves. <em>History survives.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">Move 42 in the OLTP source, re-run the merge with an effective date. The old version is expired; a new one opens:</p>
+    <div class="reveal" style="margin-top:clamp(0.6rem,1.6vh,1.1rem);display:flex;justify-content:center;">
+    <svg viewBox="0 0 820 210" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:820px;height:auto;max-height:44vh;">
+      <text class="dg-cap" x="20" y="80" text-anchor="start" style="font-weight:700;">customer 42</text>
+      <rect class="dg-node" x="60" y="62" width="440" height="36" rx="5"/>
+      <text class="dg-t" x="280" y="79" style="font-weight:700;">Seattle</text>
+      <text class="dg-cap" x="280" y="92">2021-07-01 &rarr; 2024-03-15 &middot; expired</text>
+      <rect class="dg-node-red" x="500" y="62" width="260" height="36" rx="5"/>
+      <text class="dg-t" x="630" y="79" style="font-weight:700;fill:var(--accent);">Austin</text>
+      <text class="dg-cap-red" x="630" y="92">2024-03-15 &rarr; &#8734; &middot; CURRENT</text>
+      <line x1="500" y1="48" x2="500" y2="172" class="dg-red" style="stroke-dasharray:4 3;"/>
+      <text class="dg-cap-red" x="500" y="40">the move &middot; 2024-03-15</text>
+      <line x1="60" y1="150" x2="760" y2="150" class="dg-line" style="opacity:.35;"/>
+      <circle cx="300" cy="150" r="4" fill="var(--ink)"/>
+      <line x1="300" y1="150" x2="300" y2="100" class="dg-line"/>
+      <path d="M300 100 l-5 9 l10 0 z" fill="var(--ink)"/>
+      <text class="dg-cap" x="300" y="166">order @ 2023-11</text>
+      <text class="dg-cap" x="300" y="180" style="font-style:italic;">&rarr; joins Seattle</text>
+      <circle cx="650" cy="150" r="4" fill="var(--accent)"/>
+      <line x1="650" y1="150" x2="650" y2="100" class="dg-red"/>
+      <path d="M650 100 l-5 9 l10 0 z" fill="var(--accent)"/>
+      <text class="dg-cap" x="650" y="166">order @ 2024-08</text>
+      <text class="dg-cap-red" x="650" y="180" style="font-style:italic;">&rarr; joins Austin</text>
+    </svg>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">The <span class="ink-mono">scd2.py</span> demo moved 500 customers but reported <strong>changed=445</strong>, re-picking the same city is a no-op. The merge versions <em>real</em> diffs only, so a no-change re-run reports <strong>changed=0</strong>. Idempotent, like every load today.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCD2 &middot; LIVE</span><span>expire old &middot; open new</span></div>
+</section>
+
+<!-- ─── 14 · SCHEMA EVOLUTION ──────────────────────────── -->
+<section class="slide" id="s15">
+  <div class="slide-content" style="max-width:min(92vw,920px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 04 &middot; Schema drift</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Upstream changes the shape.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:640px;">You don&rsquo;t own the source. One day a backend dev renames a column, and your pipeline either crashes, or worse, keeps running with wrong data.</p>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);">
+      <thead><tr><th>Change upstream</th><th>What it does to you</th><th>Severity</th></tr></thead>
+      <tbody>
+        <tr><td>Add a column</td><td>Nothing, if you never <span class="ink-mono">SELECT *</span></td><td>Safe</td></tr>
+        <tr class="hot"><td>Drop / rename a column</td><td>Read of a missing column, hard fail</td><td>Loud</td></tr>
+        <tr class="hot"><td>Change a column&rsquo;s type</td><td>Silent cast / truncation, corrupt data</td><td>Dangerous</td></tr>
+        <tr><td>Reorder columns</td><td><span class="ink-mono">SELECT *</span> misaligns every value</td><td>Dangerous</td></tr>
+        <tr class="hot"><td>Same shape, new values</td><td>Schema check passes; aggregates silently wrong</td><td>Worst</td></tr>
+      </tbody>
+    </table>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt">The dangerous ones are <strong>silent</strong>. A loud failure wakes you up; a quiet one ships wrong numbers for a month. The <em>worst</em> doesn&rsquo;t touch the schema at all: a <span class="ink-mono">status</span> grows a new value, an <span class="ink-mono">amount</span> goes negative. That&rsquo;s why shape-checking alone isn&rsquo;t enough.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCHEMA EVOLUTION</span><span>add · drop · retype · reorder</span></div>
+</section>
+
+<!-- ─── 15 · THE SCHEMA CONTRACT ───────────────────────── -->
+<section class="slide" id="s16">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Fix 04</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Make drift <em>loud</em>. On purpose.</h2>
+    <ul class="bullets reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);max-width:680px;">
+      <li><strong>Never <span class="ink-mono">SELECT *</span>.</strong> List every column by name, reordering and surprise columns can&rsquo;t hurt you.</li>
+      <li><strong>Pin a contract.</strong> Declare the columns + types you expect; check the live source against it <em>before</em> loading.</li>
+      <li><strong>Fail fast.</strong> Missing/retyped column &rarr; stop with a clear error. New column &rarr; warn, keep going.</li>
+      <li><strong>Then check <em>values</em>, not just shape.</strong> The contract catches a renamed column; it won&rsquo;t catch a negative <span class="ink-mono">amount</span> or an unknown <span class="ink-mono">status</span>. Assert the invariants your aggregates assume: that&rsquo;s <span class="ink-mono">data_quality.py</span>.</li>
+    </ul>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">schema_validate.py</span></div>
+      <div class="code-body"><span class="k">for</span> col, want_type <span class="k">in</span> CONTRACT.items():
+    <span class="k">if</span> col <span class="k">not in</span> live:
+        <span class="r">fail</span>(<span class="s">f"missing column '{col}' (renamed or dropped upstream)"</span>)
+    <span class="k">elif</span> live[col] != want_type:
+        <span class="r">fail</span>(<span class="s">f"type drift on '{col}': {live[col]} != {want_type}"</span>)</div>
+    </div>
+    <div class="prompt reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:720px;">
+      <span class="plabel">opencode</span>
+      <span class="pcmd">generate this column &rarr; type contract from information_schema for `orders`</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCHEMA CONTRACT</span><span>explicit columns · validate · fail fast</span></div>
+</section>
+
+<!-- ─── 29 · SCHEMA DRIFT (LIVE) ──────────────────────── -->
+<section class="slide" id="s30">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Problem 04 &middot; live</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Rename a column. <em>Fail loud.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">Simulate an upstream dev renaming <span class="ink-mono">customer_id</span>. The contract check runs <em>before</em> a single row moves:</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/schema_validate.py --simulate rename</span></div>
+      <div class="code-body"><span class="cm">baseline                </span> <span class="n">OK  source schema matches the contract.</span>
+<span class="cm">rename customer_id → cust_id</span>
+<span class="cm">validate                </span> <span class="r">FAIL  missing column 'customer_id' (renamed or dropped upstream)</span>
+                         <span class="g">WARN  new column 'cust_id' in source, not in contract (ignored)</span>
+<span class="cm">reset                   </span> <span class="n">OK  source schema matches the contract.</span></div>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">The rename would have silently misaligned the load. Listed columns + a pinned contract turn a <em>silent</em> 3&nbsp;AM corruption into a <em>loud</em> stop. New columns only warn, additive change is safe.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCHEMA CONTRACT &middot; LIVE</span><span>missing &rarr; FAIL &middot; new &rarr; WARN</span></div>
+</section>
+
+<!-- ─── 27 · PAYOFF + BRIDGE ──────────────────────────── -->
+<section class="slide" id="s28">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">What we built</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">A target you can <em>trust</em>.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:600px;">Eleven days: idempotent and recoverable, watermarked, with versioned dimensions and a schema contract at the door. The OLAP answer the gap was waiting for. Here is <span class="ink-mono">daily_revenue</span> for one day:</p>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);max-width:680px;">
+      <thead><tr><th>status</th><th class="num">total_revenue</th><th class="num">orders</th><th class="num">avg_order_value</th></tr></thead>
+      <tbody>
+        <tr><td>delivered</td><td class="num">956,607.63</td><td class="num">3,714</td><td class="num">257.57</td></tr>
+        <tr><td>pending</td><td class="num">931,882.59</td><td class="num">3,693</td><td class="num">252.34</td></tr>
+        <tr><td>shipped</td><td class="num">959,154.12</td><td class="num">3,762</td><td class="num">254.96</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      <span class="ctxt"><strong>But this is still a script.</strong> Run it for 365 days, in order, with retries, alerts, and a UI that tells you what broke at 3&nbsp;AM, that&rsquo;s a different job. Enter the <span class="term">orchestrator</span>.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>BUILT BY HAND &middot; DONE</span><span>correct script &ne; pipeline</span></div>
+</section>
+
+<!-- ─── 16 · WHY ORCHESTRATION EXISTS ──────────────────── -->
+<section class="slide" id="s17">
+  <div class="slide-content" style="max-width:min(92vw,920px);margin:0 auto;">
+    <div class="section-marker reveal">From script to system</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">A correct script isn&rsquo;t a <em>pipeline</em>.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:640px;">Say every problem above is solved. You still have one <span class="ink-mono">.py</span> file. Now run it for 365 days, in the right order, with retries, and know when it breaks.</p>
+    <div class="two-col reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;gap:clamp(0.6rem,2vw,1.6rem);">
+      <ul class="bullets" style="gap:0.4rem;">
+        <li><strong>Scheduling:</strong> run at 02:00 daily, not <span class="ink-mono">cron</span> on someone&rsquo;s laptop</li>
+        <li><strong>Dependencies:</strong> load only after extract <em>and</em> transform succeed</li>
+        <li><strong>Retries + alerts:</strong> attempt again, then page a human</li>
+      </ul>
+      <ul class="bullets" style="gap:0.4rem;">
+        <li><strong>Backfill:</strong> re-run Jan 1&ndash;90 cleanly (needs idempotency!)</li>
+        <li><strong>Observability:</strong> what ran, when, how long, why it failed</li>
+        <li><strong>Lineage:</strong> which inputs produced which outputs</li>
+      </ul>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M10 6.5h4a2 2 0 0 1 2 2V14"/></svg>
+      <span class="ctxt">That bundle of concerns has a name: an <span class="term">orchestrator</span>. We&rsquo;ll meet two, Airflow and Dagster, next.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ORCHESTRATION</span><span>schedule · depend · retry · backfill · observe</span></div>
+</section>
+
+<!-- ─── 17 · WHAT ORCHESTRATORS DON'T DO ───────────────── -->
+<section class="slide" id="s18">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--accent);border-color:var(--accent);">The part everyone gets wrong</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">What an orchestrator <em>won&rsquo;t</em> do.</h2>
+    <div class="two-col reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;">
+      <div class="col">
+        <span class="col-label" style="color:var(--ink);">It gives you</span>
+        <ul class="bullets" style="gap:0.4rem;"><li>Scheduling &amp; triggers</li><li>Task dependencies (the DAG)</li><li>Retries, alerting, backfill</li><li>A UI, logs, lineage</li></ul>
+      </div>
+      <div class="col">
+        <span class="col-label" style="color:var(--accent);">It does NOT give you</span>
+        <ul class="bullets" style="gap:0.4rem;"><li><strong>Idempotency</strong></li><li><strong>Correctness on re-run</strong></li><li><strong>Transactional loads</strong></li><li><strong>Schema safety</strong></li></ul>
+      </div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt"><strong>Retries are a trap without idempotency.</strong> A scheduler that re-runs a non-idempotent job just duplicates your data faster. The four fixes you just built by hand are the <em>prerequisite</em>, not the afterthought.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCHEDULER &ne; CORRECTNESS</span><span>that part is yours</span></div>
+</section>
+
+<!-- ─── WRAP-IT-IN-A-FRAMEWORK DIVIDER ─────────────────── -->
+<section class="slide invert" id="s31">
+  <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(92vw,760px);margin:0 auto;">
+    <div class="kicker reveal" style="color:var(--accent);">Part two</div>
+    <h2 class="reveal" style="font-size:clamp(2rem,5.5vw,3.6rem);margin-top:0.6rem;">Wrap it in a <em>framework</em>.</h2>
+    <p class="sub reveal" style="margin-top:clamp(0.8rem,1.8vh,1.3rem);max-width:560px;">Same four-problem load, now scheduled, retried, backfilled, and observed. Two tools, one job: <strong>Airflow</strong> and <strong>Dagster</strong>. Watch the load stay <em>yours</em>.</p>
+    <div class="spectrum reveal" style="margin-top:clamp(1rem,2.4vh,1.6rem);width:min(80vw,440px);">
+      <div class="axis"><span class="end" style="color:#9a968b;">a script</span><div class="track" style="background:var(--paper);"><span class="knob"></span></div><span class="end" style="color:#9a968b;">a system</span></div>
+    </div>
+  </div>
+  <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>FRAMEWORKS</span><span>schedule &middot; retry &middot; backfill &middot; observe</span></div>
+</section>
+
+<!-- ─── 31 · THE XCOM TRAP ────────────────────────────── -->
+<section class="slide" id="s32">
+  <div class="margin-def reveal" style="top:28%;">
+    <strong>XCom</strong>Airflow&rsquo;s cross-task value passing. Values are serialized into the metadata DB, tiny payloads only.
+  </div>
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">The hand-off</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Don&rsquo;t pipe a million rows<br>through the <em>scheduler</em>.</h2>
+    <div class="reveal" style="margin-top:clamp(0.5rem,1.3vh,0.85rem);display:flex;justify-content:center;">
+    <svg viewBox="0 0 820 150" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:820px;height:auto;max-height:28vh;">
+      <text class="dg-cap-red" x="20" y="46" text-anchor="start" style="font-weight:700;">trap</text>
+      <rect class="dg-node" x="78" y="26" width="96" height="32" rx="5"/><text class="dg-t" x="126" y="46">extract</text>
+      <line x1="174" y1="42" x2="306" y2="42" class="dg-red"/><path d="M306 42 l-10 -5 l0 10 z" fill="var(--accent)"/>
+      <text class="dg-cap-red" x="240" y="32">1M rows</text>
+      <rect class="dg-node-red" x="306" y="26" width="150" height="32" rx="5"/><text class="dg-t" x="381" y="46" style="fill:var(--accent);">metadata DB</text>
+      <text style="font-family:var(--mono);font-size:13px;fill:var(--accent);" x="472" y="46" text-anchor="start">&#10007; bloats / dies</text>
+      <text class="dg-cap" x="20" y="120" text-anchor="start" style="font-weight:700;">fix</text>
+      <rect class="dg-node" x="78" y="100" width="96" height="32" rx="5"/><text class="dg-t" x="126" y="120">extract</text>
+      <line x1="174" y1="116" x2="300" y2="116" class="dg-line"/><path d="M300 116 l-10 -5 l0 10 z" fill="var(--ink)"/>
+      <text class="dg-cap" x="237" y="106">1M rows</text>
+      <rect class="dg-node" x="300" y="100" width="150" height="32" rx="5"/><text class="dg-t" x="375" y="120">Parquet on disk</text>
+      <line x1="450" y1="116" x2="566" y2="116" class="dg-line"/><path d="M566 116 l-10 -5 l0 10 z" fill="var(--ink)"/>
+      <text class="dg-cap" x="508" y="106">path only</text>
+      <rect class="dg-node" x="566" y="100" width="150" height="32" rx="5"/><text class="dg-t" x="641" y="120">metadata DB</text>
+      <text style="font-family:var(--mono);font-size:14px;fill:#2e7d52;" x="726" y="121" text-anchor="start">&#10003;</text>
+    </svg>
+    </div>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:740px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">extract, stage to Parquet, NOT XCom</span></div>
+      <div class="code-body"><span class="cm"># stream PG → Parquet via DuckDB (intermediate storage)</span>
+duck.<span class="fn">execute</span>(<span class="s">"COPY (SELECT id, customer_id, amount, status, created_at "</span>
+             <span class="s">"FROM pg.orders WHERE created_at::date = DATE '{ds}') "</span>
+             <span class="s">"TO 'orders_{ds}.parquet' (FORMAT parquet)"</span>)
+<span class="cm"># → push only the PATH downstream (a few bytes)</span></div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt">Airflow <span class="term">XCom</span> and Dagster <span class="term">IO managers</span> both serialize values into a metadata store. Fine for a path or a 3-row aggregate; <strong>catastrophic for 1M rows</strong>. Both versions stage to Parquet and pass the reference.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>INTERMEDIATE STORAGE</span><span>stage big data &middot; pass the path</span></div>
+</section>
+
+<!-- ─── 32 · AIRFLOW ──────────────────────────────────── -->
+<section class="slide" id="s33">
+  <div class="slide-content" style="max-width:min(92vw,920px);margin:0 auto;">
+    <div class="section-marker reveal">Orchestrator 1 &middot; Airflow 3.2</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Tasks and edges.</h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);flex:unset;max-width:780px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">dags/daily_revenue_pipeline.py</span></div>
+      <div class="code-body"><span class="v">default_args</span> = {<span class="s">"retries"</span>: <span class="g">3</span>, <span class="s">"retry_exponential_backoff"</span>: <span class="k">True</span>}
+
+<span class="k">with</span> <span class="fn">DAG</span>(<span class="s">"daily_revenue_pipeline"</span>, schedule=<span class="s">"@daily"</span>,
+         catchup=<span class="k">False</span>, max_active_runs=<span class="g">1</span>) <span class="k">as</span> dag:   <span class="cm"># 1 = single-writer</span>
+    e = <span class="fn">PythonOperator</span>(task_id=<span class="s">"extract"</span>,   python_callable=extract)
+    t = <span class="fn">PythonOperator</span>(task_id=<span class="s">"transform"</span>, python_callable=transform)
+    l = <span class="fn">PythonOperator</span>(task_id=<span class="s">"load"</span>,      python_callable=load)
+    e <span class="r">&gt;&gt;</span> t <span class="r">&gt;&gt;</span> l</div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M10 6.5h4a2 2 0 0 1 2 2V14"/></svg>
+      <span class="ctxt">Map it back: <span class="ink-mono">retries=3</span> &harr; your retry loop &middot; <span class="ink-mono">ds / dag_run.conf</span> &harr; your <span class="ink-mono">target_date</span> &middot; <span class="ink-mono">&gt;&gt;</span> &harr; calling the three in order &middot; the metadata DB &harr; your watermark table. UI at <span class="ink-mono">:8080</span> (dev: no login).</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>AIRFLOW</span><span>tasks &middot; &gt;&gt; edges &middot; retries &middot; catchup</span></div>
+</section>
+
+<!-- ─── 33 · DAGSTER ──────────────────────────────────── -->
+<section class="slide" id="s34">
+  <div class="slide-content" style="max-width:min(92vw,920px);margin:0 auto;">
+    <div class="section-marker reveal">Orchestrator 2 &middot; Dagster</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Assets, not tasks.</h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);flex:unset;max-width:780px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">dagster_app/assets.py</span></div>
+      <div class="code-body"><span class="g">@asset</span>(partitions_def=daily)
+<span class="k">def</span> <span class="fn">raw_daily_orders</span>(context) -> <span class="k">str</span>:
+    ...                          <span class="cm"># stage PG → Parquet, return the path</span>
+
+<span class="g">@asset</span>(partitions_def=daily)
+<span class="k">def</span> <span class="fn">daily_revenue</span>(context, <span class="r">raw_daily_orders: str</span>):   <span class="cm"># ← the dependency</span>
+    ...                          <span class="cm"># the SAME DELETE + INSERT, one txn</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.3 2.6L3 8"/><path d="M3 3v5h5"/></svg>
+      <span class="ctxt">The function <strong>signature is the dependency</strong>. Dagster draws the lineage graph from it, tracks partitions, and marks <span class="ink-mono">daily_revenue</span> <em>stale</em> when its input re-materializes. UI at <span class="ink-mono">:3000</span>.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>DAGSTER</span><span>assets &middot; lineage &middot; partitions</span></div>
+</section>
+
+<!-- ─── 34 · TASKS vs ASSETS ──────────────────────────── -->
+<section class="slide" id="s35">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Two mental models</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">&ldquo;Did it run?&rdquo; vs. &ldquo;Is it <em>fresh</em>?&rdquo;</h2>
+    <div class="reveal" style="margin-top:clamp(0.6rem,1.6vh,1.1rem);display:flex;justify-content:center;">
+    <svg viewBox="0 0 820 240" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:820px;height:auto;max-height:46vh;">
+      <line x1="410" y1="22" x2="410" y2="226" class="dg-line" style="opacity:.18;"/>
+      <text class="dg-cap" x="205" y="34" style="font-weight:700;">Airflow, tasks (verbs)</text>
+      <rect class="dg-node" x="120" y="50" width="170" height="34" rx="6"/><text class="dg-t" x="205" y="71">extract</text>
+      <line x1="205" y1="84" x2="205" y2="103" class="dg-line"/><path d="M205 103 l-5 -9 l10 0 z" fill="var(--ink)"/>
+      <rect class="dg-node" x="120" y="103" width="170" height="34" rx="6"/><text class="dg-t" x="205" y="124">transform</text>
+      <line x1="205" y1="137" x2="205" y2="156" class="dg-line"/><path d="M205 156 l-5 -9 l10 0 z" fill="var(--ink)"/>
+      <rect class="dg-node" x="120" y="156" width="170" height="34" rx="6"/><text class="dg-t" x="205" y="177">load</text>
+      <text class="dg-cap" x="205" y="214">a task run, &ldquo;did it run?&rdquo;</text>
+      <text class="dg-cap-red" x="615" y="34" style="font-weight:700;">Dagster, assets (data)</text>
+      <rect class="dg-node-red" x="505" y="66" width="220" height="38" rx="6"/><text class="dg-t" x="615" y="89" style="fill:var(--accent);">raw_daily_orders</text>
+      <line x1="615" y1="104" x2="615" y2="130" class="dg-red"/><path d="M615 130 l-5 -9 l10 0 z" fill="var(--accent)"/>
+      <rect class="dg-node-red" x="505" y="130" width="220" height="38" rx="6"/><text class="dg-t" x="615" y="153" style="fill:var(--accent);">daily_revenue</text>
+      <text class="dg-cap" x="615" y="214">the data itself, &ldquo;is it fresh?&rdquo;</text>
+    </svg>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">Different mental models, <strong>identical load underneath</strong>. Pick the one that fits how your team reasons about data, then look closely at that load step.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>TASKS vs ASSETS</span><span>imperative &middot; declarative</span></div>
+</section>
+
+<!-- ─── 35 · NEITHER GIVES IDEMPOTENCY ────────────────── -->
+<section class="slide" id="s36">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--accent);border-color:var(--accent);">The punchline</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">The framework didn&rsquo;t make it <em>correct</em>.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:620px;">Here is the <span class="ink-mono">load</span> step from <em>both</em> orchestrators. It is the same DELETE&nbsp;+&nbsp;INSERT you wrote by hand, unchanged.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:740px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">the load, identical in Airflow AND Dagster</span></div>
+      <div class="code-body">con.<span class="fn">execute</span>(<span class="r">"BEGIN TRANSACTION"</span>)
+con.<span class="fn">execute</span>(<span class="s">"DELETE FROM daily_revenue WHERE date = ?"</span>, [ds])
+<span class="k">for</span> r <span class="k">in</span> agg:
+    con.<span class="fn">execute</span>(<span class="s">"INSERT INTO daily_revenue VALUES (?, ?, ?, ?, ?, ?)"</span>, r)
+con.<span class="fn">execute</span>(<span class="r">"COMMIT"</span>)</div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt">The orchestrator scheduled it, retried it, and drew its lineage. It did <strong>not</strong> make it idempotent, transactional, or schema-safe. Scheduling is the framework&rsquo;s job; <strong>correctness is yours</strong>.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCHEDULER &ne; CORRECTNESS</span><span>the load is the same code</span></div>
+</section>
+
+<!-- ─── 36 · SYNTHESIS ────────────────────────────────── -->
+<section class="slide" id="s37">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Synthesis</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Four problems, defeated.</h2>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <thead><tr><th>What the napkin forgot</th><th>The fix, all in the load</th></tr></thead>
+      <tbody>
+        <tr><td>Re-runs duplicate</td><td>DELETE&nbsp;+&nbsp;INSERT / UPSERT in one transaction</td></tr>
+        <tr><td>Crash mid-load</td><td>one transaction &rarr; atomic rollback + safe retry</td></tr>
+        <tr><td>Dimensions mutate</td><td>SCD2 validity windows (<span class="ink-mono">valid_from/to</span>)</td></tr>
+        <tr><td>Schema drift</td><td>explicit columns + a pinned contract, checked first</td></tr>
+      </tbody>
+    </table>
+    <div class="callout proof reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">One idea ties the two halves together: because the load <strong>replaces a whole partition atomically</strong>, re-running any day is safe, which is exactly what makes <span class="term">backfill</span> and <span class="term">late-arriving data</span> non-events.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SYNTHESIS</span><span>idempotent load &rarr; safe backfill</span></div>
+</section>
+
+<!-- ─── 37 · THE CEILING = LATENCY → L5 ───────────────── -->
+<section class="slide" id="s38">
+  <div class="slide-content" style="max-width:min(92vw,860px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--accent);border-color:var(--accent);">The ceiling of batch</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Correct. And a day <em>behind.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:640px;">Every number you just learned to trust is also up to <strong>24 hours old</strong>. You ran the job at 2&nbsp;AM; reality kept moving. For a daily revenue dashboard, fine. For fraud, inventory, live ops, a day late <em>is</em> wrong.</p>
+    <div class="spectrum reveal" style="margin-top:clamp(1rem,2.6vh,1.8rem);max-width:560px;">
+      <div class="axis"><span class="end">~24 h</span><div class="track"><span class="knob" style="left:8%;"></span></div><span class="end">seconds</span></div>
+      <div class="cap">&larr; where batch lives&nbsp;&nbsp;·&nbsp;&nbsp;where the rest of this course goes &rarr;</div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.7rem,1.6vh,1.1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <span class="ctxt"><strong>Lesson 5, Change Data Capture.</strong> Stream every insert and update out of Postgres <em>as it happens</em>, not at 2&nbsp;AM. <span class="ink-mono">wal_level=logical</span> is already set on our source. Next, we kill the lag.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>WHAT&rsquo;S NEXT</span><span>batch&rsquo;s limit is latency &rarr; streaming</span></div>
+</section>
+
+<!-- ─── 38 · TAKE-HOME ────────────────────────────────── -->
+<section class="slide" id="s39">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Take-home</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Ship a pipeline you can <em>trust</em>.</h2>
+    <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);max-width:680px;">
+      <li><strong>Build the load right:</strong> DELETE&nbsp;+&nbsp;INSERT (or UPSERT) in one transaction, a watermark, SCD2 for one dimension, a schema contract, and a value-level data-quality check.</li>
+      <li><strong>Prove it:</strong> <span class="ink-mono">prove_idempotent.py</span> must print an <em>identical</em> checksum on every run, that&rsquo;s the bar, not the prose.</li>
+      <li><strong>Wrap it:</strong> Airflow <em>or</em> Dagster, your pick, and map each framework concept back to your hand-written code.</li>
+      <li><strong>Submit:</strong> repo + <span class="ink-mono">README</span> + <span class="ink-mono">AGENTS.md</span>/<span class="ink-mono">CLAUDE.md</span>, via PR.</li>
+    </ul>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">If you can crash it mid-run, re-run it three times, and the checksum never moves, you&rsquo;ve built the thing this lesson is about.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>DELIVERABLE</span><span>correct &middot; proven &middot; orchestrated</span></div>
+</section>
+
+<!-- ─── 39 · ANNEX · RUN IT ───────────────────────────── -->
+<section class="slide" id="s40">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--muted);border-color:var(--rule-strong);">Annex &middot; commands</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Run it yourself.</h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">the demos &middot; uv run</span></div>
+      <div class="code-body"><span class="v">$</span> docker compose up -d        <span class="cm"># postgres + airflow + dagster</span>
+<span class="v">$</span> uv run python src/seed_data.py
+<span class="v">$</span> uv run python src/prove_idempotent.py 2024-01-15 --loader naive   <span class="cm"># 3→6→9</span>
+<span class="v">$</span> uv run python src/prove_idempotent.py 2024-01-15                  <span class="cm"># identical ×3</span>
+<span class="v">$</span> uv run python src/pipeline_failure.py 2024-01-15 --fail-prob 0.4
+<span class="v">$</span> uv run python src/pipeline_watermark.py 2024-01-10 2024-01-20
+<span class="v">$</span> uv run python src/scd2.py --show 42       <span class="cm"># SCD2 history (full seq in README)</span>
+<span class="v">$</span> uv run python src/schema_validate.py --simulate rename
+<span class="v">$</span> uv run python src/data_quality.py 2024-01-15         <span class="cm"># assert value invariants</span>
+<span class="v">$</span> uv run python src/experiment_upsert_gap.py           <span class="cm"># orphan key vs DELETE+INSERT</span>
+<span class="v">$</span> uv run python src/experiment_timezone.py             <span class="cm"># date filter shifts by TZ</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+      <span class="ctxt">Every demo is <span class="ink-mono">uv run python src/&lt;file&gt;.py</span>; <span class="ink-mono">uv</span> builds the venv on first run. Multi-step demos (SCD2) are spelled out in the README. Airflow <span class="ink-mono">:8080</span> (no login) &middot; Dagster <span class="ink-mono">:3000</span>.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX</span><span>docker compose &middot; uv run</span></div>
+</section>
+
+<!-- ─── ANNEX · OPENCODE ──────────────────────────────── -->
+<section class="slide" id="s41">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--muted);border-color:var(--rule-strong);">Annex &middot; opencode</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Prompts for this pipeline.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:660px;">AI accelerates the boilerplate, the translation, and the debugging. You own the four problems and the review. Starting points:</p>
+    <div class="prompt reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:820px;">
+      <span class="plabel">opencode</span>
+      <span class="pcmd">scaffold a Postgres &rarr; DuckDB daily-revenue ETL</span>
+      <span class="pcmd">generate a column &rarr; type contract from information_schema for `orders`</span>
+      <span class="pcmd">draft a Type-2 SCD merge for `customers` (valid_from / valid_to / is_current)</span>
+      <span class="pcmd">port this Airflow DAG to Dagster assets</span>
+      <span class="pcmd">why does this load duplicate rows when I run it twice?</span>
+      <span class="pcmd">this DuckDB write throws &ldquo;Conflicting lock&rdquo;, what&rsquo;s wrong?</span>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.9 5.8L20 10l-5.1 1.2L13 17l-1.9-5.8L6 10l5.1-1.2z"/></svg>
+      <span class="ctxt">Always read what it hands back. Ask it <em>&ldquo;is this load idempotent, does a re-run no-op?&rdquo;</em> The answer is the lesson.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX</span><span>opencode &middot; AI in the loop</span></div>
+</section>
+
+<!-- ─── 40 · ANNEX · ARCHITECTURE ─────────────────────── -->
+<section class="slide" id="s42">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--muted);border-color:var(--rule-strong);">Annex &middot; the stack</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Source, target, dataset.</h2>
+    <div class="reveal" style="margin-top:clamp(0.5rem,1.3vh,0.9rem);">
+    <div class="archviz">
+      <div class="arch-node">
+        <div class="an-title">OLTP SOURCE &middot; Postgres</div>
+        <div class="an-rule"></div>
+        <div class="arch-row"><span>orders</span><span class="num">1M</span></div>
+        <div class="arch-row"><span>customers</span><span class="num">50k</span></div>
+        <div class="arch-foot">born here</div>
+      </div>
+      <div class="arch-conn">
+        <div class="ac-top">extract &middot; transform &middot; load</div>
+        <div class="ac-arrow"></div>
+      </div>
+      <div class="arch-node tgt">
+        <div class="an-title">ANALYTICAL TARGET &middot; DuckDB</div>
+        <div class="an-rule"></div>
+        <div class="arch-line">daily_revenue</div>
+        <div class="arch-line">customers_dim</div>
+        <div class="arch-line">pipeline_metadata</div>
+        <div class="arch-foot">questioned here</div>
+      </div>
+    </div>
+    </div>
+    <div class="reveal" style="display:flex;gap:clamp(1.2rem,4vw,3rem);flex-wrap:wrap;margin-top:clamp(0.6rem,1.5vh,1.1rem);">
+      <div><div class="stat">1,000,000</div><div class="stat-label">orders · 90 days · 3 statuses</div></div>
+      <div><div class="stat">50,000</div><div class="stat-label">customers · 8 cities</div></div>
+      <div><div class="stat red">~11k</div><div class="stat-label">orders / day</div></div>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX</span><span>Postgres &rarr; DuckDB</span></div>
+</section>
+
+<!-- ─── 41 · ANNEX · GOTCHAS ──────────────────────────── -->
+<section class="slide" id="s43">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--muted);border-color:var(--rule-strong);">Annex &middot; gotchas</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Read before you debug.</h2>
+    <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);max-width:700px;">
+      <li><strong>DuckDB is single-writer.</strong> Runner, Airflow, Dagster share one file, run one writer at a time (that&rsquo;s why <span class="ink-mono">max_active_runs=1</span>).</li>
+      <li><strong>Airflow <span class="ink-mono">catchup=False</span></strong> on purpose, so it won&rsquo;t backfill two years on a laptop. Use <span class="ink-mono">airflow backfill create --from-date --to-date</span> for a bounded range.</li>
+      <li><strong>Reset levels:</strong> delete <span class="ink-mono">data/analytics.duckdb</span> to drop the target; <span class="ink-mono">docker compose down -v</span> wipes the seed + Airflow metadata too.</li>
+      <li><strong>Timezone bites the date filter.</strong> <span class="ink-mono">created_at::date</span> uses the session zone, so a day&rsquo;s row count shifts under UTC vs local. <span class="ink-mono">experiment_timezone.py</span> shows it; pin a zone for reproducible backfills.</li>
+      <li><strong>First <span class="ink-mono">docker compose up -d</span> is slow</strong>, it builds the images and pulls Postgres ×2.</li>
+    </ul>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+      <span class="ctxt">Same Postgres, <span class="ink-mono">wal_level=logical</span> already on, so Lesson 5&rsquo;s CDC demo runs against this exact source, no re-provisioning.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX</span><span>single-writer &middot; catchup &middot; reset</span></div>
+</section>
+
+<!-- ─── 42 · ANNEX · SCRIPTS (1/2) ───────────────────────── -->
+<section class="slide" id="s44">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--muted);border-color:var(--rule-strong);">Annex &middot; scripts (1/2)</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Infrastructure &amp; pipeline phases.</h2>
+    <div class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);font-size:0.9em;max-width:880px;">
+      <div style="margin-bottom:0.6rem;"><strong>config.py</strong>: Shared connection config and schema setup. Defines Postgres DSN, DuckDB path, creates target tables. All scripts import from here.</div>
+      <div style="margin-bottom:0.6rem;"><strong>seed_data.py</strong>: Generates ~1M orders and ~50k customers in Postgres using DuckDB's postgres extension for fast server-side COPY. Configurable order count, customer count, and date window.</div>
+      <div style="margin-bottom:0.6rem;"><strong>probe_data.py</strong>: Shows current state of both databases: row counts, date ranges, sample data. Use <span class="ink-mono">--reset</span> to drop DuckDB and re-seed Postgres.</div>
+      <div style="margin-bottom:0.6rem;"><strong>pipeline_naive.py</strong>: Phase 1: extract → transform → blind append load. No idempotency, re-runs duplicate rows. Shows the problem.</div>
+      <div style="margin-bottom:0.6rem;"><strong>pipeline_idempotent.py</strong>: Phase 2: adds idempotency via DELETE+INSERT or UPSERT. Re-runs produce the same state.</div>
+      <div style="margin-bottom:0.6rem;"><strong>pipeline_failure.py</strong>: Phase 3: injects random crashes mid-load to demonstrate transactional recovery. DELETE+INSERT in one transaction means ROLLBACK leaves the target unchanged.</div>
+      <div style="margin-bottom:0.6rem;"><strong>pipeline_watermark.py</strong>: Phase 4: multi-date pipeline with a <span class="ink-mono">pipeline_metadata</span> ledger to track loaded dates. Critical lesson: data write and metadata write must commit in the SAME transaction.</div>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX</span><span>infrastructure &amp; pipeline</span></div>
+</section>
+
+<!-- ─── 43 · ANNEX · SCRIPTS (2/2) ───────────────────────── -->
+<section class="slide" id="s45">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal" style="color:var(--muted);border-color:var(--rule-strong);">Annex &middot; scripts (2/2)</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Testing, validation, &amp; edge cases.</h2>
+    <div class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);font-size:0.9em;max-width:880px;">
+      <div style="margin-bottom:0.6rem;"><strong>prove_idempotent.py</strong>: Runs a pipeline N times and compares row counts + checksums. Proves idempotency (all runs identical) or detects duplication (naive loader).</div>
+      <div style="margin-bottom:0.6rem;"><strong>scd2.py</strong>: SCD Type 2 merge for customer dimension. Detects changed customers, expires old versions, inserts new ones with <span class="ink-mono">valid_from</span>/<span class="ink-mono">valid_to</span> windows. Includes <span class="ink-mono">--simulate-move</span> to mutate source and <span class="ink-mono">--show</span> to view version history.</div>
+      <div style="margin-bottom:0.6rem;"><strong>schema_validate.py</strong>: Declares expected source schema (column names + types). Queries <span class="ink-mono">information_schema.columns</span> and diffs against the contract. Detects missing columns, type changes, and new columns.</div>
+      <div style="margin-bottom:0.6rem;"><strong>data_quality.py</strong>: Value-level data quality checks on source and target (negative amounts, nulls, revenue mismatches). Catches issues schema contracts miss.</div>
+      <div style="margin-bottom:0.6rem;"><strong>experiment_upsert_gap.py</strong>: Demonstrates the UPSERT orphaned key problem: if a key disappears from the source, UPSERT leaves the old row behind while DELETE+INSERT removes it.</div>
+      <div style="margin-bottom:0.6rem;"><strong>experiment_timezone.py</strong>: Shows how <span class="ink-mono">created_at::date</span> partition boundaries shift based on session timezone. Counts rows for a date across UTC, America/Los_Angeles, and Asia/Tokyo.</div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.9 5.8L20 10l-5.1 1.2L13 17l-1.9-5.8L6 10l5.1-1.2z"/></svg>
+      <span class="ctxt">All scripts take <span class="ink-mono">--help</span>. The pipeline phases build on each other: naive → idempotent → failure → watermark. Run them in order to see the fixes accumulate.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX</span><span>testing &amp; edge cases</span></div>
+</section>
+
+<script>
+/* ============ navigation + reveal orchestration ============ */
+const slides=[...document.querySelectorAll('.slide')];
+const bar=document.getElementById('progressBar');
+const io=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      const i=slides.indexOf(e.target);
+      bar.style.width=((i+1)/slides.length*100)+'%';
+    }
+  });
+},{threshold:0.5});
+slides.forEach(s=>io.observe(s));
+
+function go(n){const i=Math.max(0,Math.min(slides.length-1,n));slides[i].scrollIntoView({behavior:'smooth'});}
+function current(){
+  let best=0,bestTop=Infinity;
+  slides.forEach((s,i)=>{const t=Math.abs(s.getBoundingClientRect().top);if(t<bestTop){bestTop=t;best=i;}});
+  return best;
+}
+window.addEventListener('keydown',(e)=>{
+  if(['ArrowDown','PageDown',' '].includes(e.key)){e.preventDefault();go(current()+1);}
+  else if(['ArrowUp','PageUp'].includes(e.key)){e.preventDefault();go(current()-1);}
+  else if(e.key==='Home'){e.preventDefault();go(0);}
+  else if(e.key==='End'){e.preventDefault();go(slides.length-1);}
+});
+</script>
+</body>
+</html>

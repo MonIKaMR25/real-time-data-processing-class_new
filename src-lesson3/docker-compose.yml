@@ -1,0 +1,135 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: lesson3-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: bench
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: bench
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+      - ./data:/data:ro
+    command:
+      - postgres
+      - -c
+      - shared_buffers=2GB
+      - -c
+      - max_connections=200
+      - -c
+      - work_mem=256MB
+      - -c
+      - effective_cache_size=6GB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - synchronous_commit=on
+      - -c
+      - wal_level=logical
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bench -d bench"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  # ── DuckDB benchmark runner ──
+  # Containerized so it competes with Postgres under identical resource caps
+  # (4 CPU / 8 GB). Students can also run scripts natively on the host with
+  # `uv run python <script>` — see slide notes. The reveal at the end of the
+  # lesson is: lift the cage, and DuckDB gets even faster.
+  duckdb:
+    build: .
+    container_name: lesson3-duckdb
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      CRDB_HOST: crdb-1
+      CRDB_PORT: "26257"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8g
+    command: sleep infinity
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── CockroachDB cluster (for sharding demo) ──
+  crdb-1:
+    image: cockroachdb/cockroach:v24.3.14
+    container_name: lesson3-crdb-1
+    hostname: crdb-1
+    command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-1
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    volumes:
+      - crdb1:/cockroach/cockroach-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+
+  crdb-2:
+    image: cockroachdb/cockroach:v24.3.14
+    container_name: lesson3-crdb-2
+    hostname: crdb-2
+    command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-2
+    ports:
+      - "26258:26257"
+    volumes:
+      - crdb2:/cockroach/cockroach-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+
+  crdb-3:
+    image: cockroachdb/cockroach:v24.3.14
+    container_name: lesson3-crdb-3
+    hostname: crdb-3
+    command: start --insecure --join=crdb-1,crdb-2,crdb-3 --advertise-addr=crdb-3
+    ports:
+      - "26259:26257"
+    volumes:
+      - crdb3:/cockroach/cockroach-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+
+  crdb-init:
+    image: cockroachdb/cockroach:v24.3.14
+    depends_on:
+      - crdb-1
+      - crdb-2
+      - crdb-3
+    entrypoint: /bin/bash
+    command: >
+      -c "
+      sleep 5 &&
+      cockroach init --insecure --host=crdb-1 2>/dev/null || true &&
+      sleep 2 &&
+      cockroach sql --insecure --host=crdb-1 -e 'CREATE DATABASE IF NOT EXISTS bench' &&
+      echo '✓ CockroachDB cluster ready'
+      "
+
+volumes:
+  pgdata:
+  crdb1:
+  crdb2:
+  crdb3:

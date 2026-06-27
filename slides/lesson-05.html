@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 5 · Change Data Capture · Stream the Changes</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   LESSON 5 — "REDLINE MINIMAL" DESIGN SYSTEM  (shared with L4)
+   Light, monochrome ink-on-paper + a single signal red (#d23a26).
+   Switzer (grotesque) + Space Mono. Key terms = mono w/ red underline.
+   ============================================================ */
+:root{
+  --paper:#f7f6f2; --paper2:#eeede6; --ink:#1a1915; --ink-soft:#46443c; --muted:#928f84;
+  --rule:#e4e2da; --rule-strong:#ccc9be;
+  --accent:#d23a26; --accent-soft:rgba(210,58,38,0.10); --accent-dim:rgba(210,58,38,0.18);
+  --code-bg:#201e18;
+  --sans:'Switzer',-apple-system,sans-serif; --mono:'Space Mono',ui-monospace,monospace;
+  --dur:0.7s; --ease:cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-snap-type:y mandatory;scroll-behavior:smooth}
+html,body{height:100%;overflow-x:hidden;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+
+/* ---- slide shell ---- */
+.slide{
+  width:100vw;height:100vh;height:100dvh;overflow:hidden;position:relative;scroll-snap-align:start;
+  display:flex;flex-direction:column;padding:clamp(1.3rem,3.5vw,3.3rem) clamp(1.4rem,5vw,4.5rem);
+}
+.slide-content{flex:1;display:flex;flex-direction:column;justify-content:center;max-height:100%;min-height:0;overflow:hidden}
+.slide.invert{background:var(--ink);color:var(--paper)}
+.slide.invert .sub{color:#b9b5a8}
+.slide.invert h1,.slide.invert h2,.slide.invert h3,.slide.invert .big-q{color:var(--paper)}
+.slide.invert .kicker,.slide.invert .crumb{color:#9a968b}
+.slide.invert .meta{color:#7c796f}
+.slide.invert hr.rule{border-color:rgba(255,255,255,0.10)}
+.slide.invert .callout.note{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.2)}
+.slide.invert .bullets li{color:#e7e3d8}
+.slide.invert .dtable td{color:#e7e3d8}.slide.invert .dtable th{color:#9a968b}
+.slide.invert .dtable th,.slide.invert .dtable td{border-color:rgba(255,255,255,0.12)}
+/* archviz on dark slides: nodes + text must be light, tgt keeps the red accent */
+.slide.invert .arch-node{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.2)}
+.slide.invert .arch-node .an-title{color:var(--paper)}
+.slide.invert .arch-node .arch-line{color:#e7e3d8}
+.slide.invert .arch-node .arch-row{color:#e7e3d8}
+.slide.invert .arch-node .arch-foot{color:#9a968b}
+.slide.invert .arch-node .an-rule{border-color:rgba(255,255,255,0.18)}
+.slide.invert .arch-node.tgt{background:var(--accent-soft);border-color:var(--accent)}
+.slide.invert .arch-node.tgt .an-title{color:var(--accent)}
+.slide.invert .arch-node.tgt .arch-line{color:var(--paper)}
+
+/* ---- nav: slash breadcrumb (course progress) ---- */
+.crumbs{display:flex;flex-wrap:wrap;font-family:var(--mono);font-size:clamp(0.55rem,0.92vw,0.7rem);color:var(--muted);letter-spacing:0.03em}
+.crumb{padding-right:0.8em;margin-right:0.8em;border-right:1px solid var(--rule-strong)}
+.crumb:last-child{border-right:0;margin-right:0;padding-right:0}
+.crumb.on{color:var(--ink);font-weight:700;position:relative}
+.crumb.on::after{content:'';position:absolute;left:0;right:0.8em;bottom:-0.45em;height:2px;background:var(--accent)}
+
+/* ---- type ---- */
+.kicker{font-family:var(--mono);font-size:clamp(0.6rem,1vw,0.74rem);letter-spacing:0.16em;text-transform:uppercase;color:var(--muted)}
+.eyebrow{font-family:var(--mono);font-size:clamp(0.58rem,0.95vw,0.72rem);letter-spacing:0.12em;text-transform:uppercase;color:var(--accent)}
+.section-marker{display:inline-flex;align-items:center;gap:0.4rem;font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.7rem);
+  font-weight:700;text-transform:uppercase;letter-spacing:0.12em;padding-bottom:0.35rem;border-bottom:2px solid var(--accent);color:var(--accent);align-self:flex-start}
+h1{font-family:var(--sans);font-weight:600;line-height:0.98;letter-spacing:-0.025em;font-size:clamp(2.5rem,7.5vw,5.6rem);color:var(--ink)}
+h2{font-family:var(--sans);font-weight:600;line-height:1.05;letter-spacing:-0.015em;font-size:clamp(1.55rem,4.2vw,2.9rem);color:var(--ink)}
+h2 em,h1 em{font-style:italic;font-weight:500;color:var(--accent)}
+h3{font-family:var(--sans);font-weight:600;font-size:clamp(1rem,2.2vw,1.5rem);letter-spacing:-0.01em}
+.sub{font-family:var(--sans);font-weight:400;font-size:clamp(0.84rem,1.5vw,1.08rem);color:var(--ink-soft);max-width:640px;line-height:1.6}
+.lede{font-family:var(--sans);font-weight:500;font-size:clamp(0.95rem,1.8vw,1.3rem);color:var(--ink);line-height:1.4}
+.label{font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.7rem);font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted)}
+
+/* ---- signature: key term = mono + red underline (NOT a pill) ---- */
+.term{font-family:var(--mono);font-size:0.84em;color:var(--ink);border-bottom:2px solid var(--accent);padding-bottom:0.02em;white-space:nowrap}
+.slide.invert .term{color:var(--paper)}
+.term.danger{color:var(--accent)}
+.hl{background:var(--accent-soft);color:var(--accent);padding:0.04em 0.32em;border-radius:2px;font-weight:600}
+.ink-mono{font-family:var(--mono);font-size:0.88em;background:rgba(0,0,0,0.06);padding:0.05em 0.35em;border-radius:2px}
+.slide.invert .ink-mono{background:rgba(255,255,255,0.1)}
+
+/* ---- bullets ---- */
+.bullets{list-style:none;display:flex;flex-direction:column;gap:clamp(0.3rem,0.7vh,0.5rem)}
+.bullets li{font-family:var(--sans);font-size:clamp(0.74rem,1.25vw,0.94rem);color:var(--ink);line-height:1.45;padding-left:1.35em;text-indent:-1.35em}
+.bullets li::before{content:'\2014';color:var(--accent);font-weight:700;margin-right:0.55em}
+.bullets li strong{font-weight:600}
+
+/* ---- two column ---- */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1rem,2.5vw,2rem);flex:1;min-height:0}
+@media(max-width:700px){.two-col{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:clamp(0.3rem,0.7vh,0.55rem);min-height:0}
+.col-label{font-family:var(--mono);font-size:clamp(0.55rem,0.85vw,0.68rem);font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
+
+/* ---- big question ---- */
+.big-q{font-family:var(--sans);font-weight:600;font-size:clamp(1.6rem,4.4vw,3.2rem);line-height:1.12;letter-spacing:-0.02em;color:var(--ink);max-width:20ch}
+.big-q .term{font-size:0.62em;vertical-align:0.12em}
+
+/* ---- live change-stream rail (replaces L4's knob/spectrum, all-red) ---- */
+.stream{margin-top:clamp(1rem,2.6vh,1.8rem);max-width:560px}
+.stream-rail{display:flex;align-items:center;gap:clamp(0.5rem,1.4vw,1rem)}
+.stream .node{font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.7rem);font-weight:700;letter-spacing:0.03em;
+  color:var(--accent);border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:4px;padding:0.3em 0.6em;white-space:nowrap}
+.stream .node.src{position:relative}
+.stream .node.src::after{content:'';position:absolute;inset:-4px;border:1.5px solid var(--accent);border-radius:7px;opacity:0;animation:srcPulse 2.4s var(--ease) infinite}
+.stream .rail{position:relative;flex:1;height:2px;background:var(--accent)}
+.stream .rail::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+  border-left:7px solid var(--accent);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.stream .pkt{position:absolute;top:50%;left:0;width:clamp(15px,1.7vw,19px);height:clamp(15px,1.7vw,19px);
+  margin-left:calc(-0.5 * clamp(15px,1.7vw,19px));border-radius:4px;background:var(--accent);color:var(--paper);
+  font-family:var(--mono);font-weight:700;font-size:clamp(0.5rem,0.78vw,0.62rem);
+  display:flex;align-items:center;justify-content:center;opacity:0;animation:pktFlow 5.6s linear infinite}
+.stream .cap{font-family:var(--mono);font-size:clamp(0.55rem,0.9vw,0.68rem);color:var(--muted);margin-top:0.75em;letter-spacing:0.04em}
+/* ---- cover: faint scrolling WAL log (the stream as ambience, red LSNs) ---- */
+.wal-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.wal-bg .wal-col{position:absolute;top:0;left:0;right:0;padding-left:clamp(1.4rem,5vw,4.5rem);
+  font-family:var(--mono);font-size:clamp(0.62rem,1.05vw,0.82rem);white-space:nowrap;color:var(--ink);
+  opacity:0.06;animation:walScroll 32s linear infinite}
+.wal-bg .wal-col > span{display:block;margin-bottom:clamp(0.4rem,1vh,0.78rem)}
+.wal-bg .lsn{color:var(--accent)}.wal-bg .arr{color:var(--accent)}
+.wal-bg::before,.wal-bg::after{content:'';position:absolute;left:0;right:0;height:20%;z-index:1}
+.wal-bg::before{top:0;background:linear-gradient(var(--paper),transparent)}
+.wal-bg::after{bottom:0;background:linear-gradient(transparent,var(--paper))}
+
+/* ---- callout ---- */
+.callout{display:flex;gap:clamp(0.4rem,0.9vw,0.65rem);padding:clamp(0.4rem,0.9vh,0.7rem) clamp(0.6rem,1.2vw,1rem);
+  border-radius:4px;border-left:3px solid;flex-shrink:0}
+.callout .ico{flex-shrink:0;width:clamp(0.95rem,1.4vw,1.15rem);height:clamp(0.95rem,1.4vw,1.15rem);margin-top:0.05em}
+.callout .ctxt{font-family:var(--sans);font-size:clamp(0.66rem,1.1vw,0.85rem);line-height:1.5;color:var(--ink)}
+.slide.invert .callout .ctxt{color:#e7e3d8}
+.callout.note{background:var(--paper2);border-color:var(--rule-strong)}
+.callout.danger{background:var(--accent-soft);border-color:var(--accent)}
+.callout.proof{background:var(--paper2);border-color:var(--ink)}
+
+/* ---- opencode AI prompt (terminal-style box) ---- */
+.prompt{background:var(--code-bg);border:1px solid rgba(255,255,255,0.08);border-left:3px solid var(--accent);border-radius:5px;padding:clamp(0.42rem,0.95vh,0.68rem) clamp(0.7rem,1.4vw,1.05rem)}
+.prompt .plabel{display:block;font-family:var(--mono);font-size:clamp(0.48rem,0.75vw,0.6rem);font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:0.3rem}
+.prompt .pcmd{display:block;font-family:var(--mono);font-size:clamp(0.6rem,1vw,0.78rem);color:#d8d4c8;line-height:1.7}
+.prompt .pcmd::before{content:'\276F  ';color:var(--accent);font-weight:700}
+
+/* ---- code ---- */
+.code-block{background:var(--code-bg);border:1px solid rgba(255,255,255,0.08);border-radius:5px;overflow:hidden;min-height:0}
+.code-header{display:flex;align-items:center;gap:5px;padding:clamp(0.28rem,0.5vh,0.4rem) clamp(0.5rem,1vw,0.8rem);
+  background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.06)}
+.code-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.18)}
+.code-label{margin-left:auto;font-family:var(--mono);font-size:clamp(0.5rem,0.78vw,0.62rem);color:rgba(255,255,255,0.38)}
+.code-body{padding:clamp(0.5rem,1vh,0.85rem) clamp(0.7rem,1.3vw,1.1rem);font-family:var(--mono);
+  font-size:clamp(0.55rem,0.92vw,0.72rem);line-height:1.62;color:#d8d4c8;white-space:pre;overflow:hidden;text-align:left}
+.c{color:#76726a;font-style:italic}.k{color:#8fb3c7}.s{color:#c7a06a}.fn{color:#e6e1d4}
+.v{color:#b9c4cb}.g{color:#c7a06a}.n{color:#9ec1a8}.r{color:#e8604c;font-weight:700}.cm{color:#76726a}
+
+/* ---- ascii architecture ---- */
+.arch{font-family:var(--mono);font-size:clamp(0.5rem,0.85vw,0.68rem);color:var(--ink-soft);line-height:1.5;white-space:pre;
+  background:var(--paper2);border:1px solid var(--rule);border-radius:5px;padding:clamp(0.7rem,1.4vh,1.1rem) clamp(0.9rem,1.6vw,1.3rem);overflow:hidden}
+
+/* ---- HTML architecture diagram (overlap-proof; real boxes, content-sized center) ---- */
+.archviz{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:clamp(0.6rem,2vw,1.7rem);
+  width:100%;max-width:900px;margin:0 auto}
+.arch-node{min-width:0;border:1.5px solid var(--rule-strong);border-radius:8px;background:var(--paper2);
+  padding:clamp(0.55rem,1.3vh,0.95rem) clamp(0.7rem,1.5vw,1.15rem);display:flex;flex-direction:column;gap:0.3rem}
+.arch-node.tgt{border-color:var(--accent);background:var(--accent-soft)}
+.an-title{font-family:var(--mono);font-weight:700;font-size:clamp(0.56rem,0.95vw,0.74rem);letter-spacing:0.03em;text-align:center;color:var(--ink)}
+.arch-node.tgt .an-title{color:var(--accent)}
+.an-rule{border:0;border-top:1px solid var(--rule-strong);opacity:.6;margin:0.12rem 0 0.22rem}
+.arch-row{display:flex;justify-content:space-between;gap:0.8rem;font-family:var(--mono);font-size:clamp(0.56rem,0.98vw,0.74rem);color:var(--ink)}
+.arch-row .num{color:var(--muted);white-space:nowrap}
+.arch-line{font-family:var(--mono);font-size:clamp(0.56rem,0.98vw,0.74rem);color:var(--ink);line-height:1.5}
+.arch-foot{margin-top:0.32rem;font-family:var(--mono);font-size:clamp(0.5rem,0.84vw,0.64rem);font-style:italic;color:var(--muted);text-align:center}
+.arch-conn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.4rem;padding:0 clamp(0.1rem,0.8vw,0.5rem)}
+.ac-top{font-family:var(--mono);font-size:clamp(0.5rem,0.85vw,0.66rem);color:var(--accent);white-space:nowrap;letter-spacing:0.02em}
+.ac-arrow{align-self:stretch;height:2px;background:var(--accent);position:relative;min-width:clamp(64px,8vw,110px)}
+.ac-arrow::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+  border-left:7px solid var(--accent);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.ac-sub{font-family:var(--mono);font-size:clamp(0.46rem,0.78vw,0.6rem);color:var(--muted);white-space:nowrap}
+@media(max-width:680px){
+  .archviz{grid-template-columns:1fr;gap:0.6rem}
+  .ac-arrow{min-width:0;width:2px;height:26px;align-self:center}
+  .ac-arrow::after{right:auto;left:50%;top:auto;bottom:-1px;transform:translateX(-50%);
+    border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--accent);border-bottom:0}
+}
+
+/* ---- table ---- */
+.dtable{width:100%;border-collapse:collapse}
+.dtable th,.dtable td{font-family:var(--sans);font-size:clamp(0.62rem,1.05vw,0.84rem);
+  padding:clamp(0.22rem,0.5vh,0.42rem) clamp(0.4rem,0.9vw,0.75rem);text-align:left;border-bottom:1px solid var(--rule)}
+.dtable th{font-family:var(--mono);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;font-size:clamp(0.5rem,0.78vw,0.62rem);color:var(--muted)}
+.dtable td.num,.dtable th.num{font-family:var(--mono);text-align:right}
+.dtable tr:last-child td{border-bottom:0}
+.dtable .hot{color:var(--accent);font-weight:600}
+
+/* ---- big stat ---- */
+.stat{font-family:var(--mono);font-weight:700;font-size:clamp(1.5rem,3.6vw,2.7rem);line-height:1;color:var(--ink)}
+.stat.red{color:var(--accent)}
+.stat-label{font-family:var(--mono);font-size:clamp(0.55rem,0.85vw,0.68rem);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em}
+
+/* ---- footer meta ---- */
+.meta{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-family:var(--mono);
+  font-size:clamp(0.5rem,0.82vw,0.64rem);color:var(--muted);letter-spacing:0.03em}
+.meta span:nth-child(2){text-align:right;opacity:0.8}
+hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
+
+/* ---- reveal animation ---- */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.slide.visible .reveal{opacity:1;transform:none}
+.slide.visible .reveal:nth-child(1){transition-delay:.05s}
+.slide.visible .reveal:nth-child(2){transition-delay:.12s}
+.slide.visible .reveal:nth-child(3){transition-delay:.19s}
+.slide.visible .reveal:nth-child(4){transition-delay:.26s}
+.slide.visible .reveal:nth-child(5){transition-delay:.33s}
+.slide.visible .reveal:nth-child(6){transition-delay:.40s}
+.slide.visible .reveal:nth-child(7){transition-delay:.47s}
+
+/* ---- chrome: progress bar, nav dots ---- */
+.progress-bar{position:fixed;bottom:0;left:0;height:2px;background:var(--accent);z-index:200;width:0;transition:width .35s ease}
+.kbd-hint{position:fixed;bottom:clamp(0.5rem,1.2vh,0.9rem);left:50%;transform:translateX(-50%);font-family:var(--mono);
+  font-size:clamp(0.42rem,0.65vw,0.52rem);color:var(--muted);opacity:0.5;z-index:200}
+@media(max-height:600px){.kbd-hint{display:none}}
+@media (prefers-reduced-motion:reduce){.reveal{transition-duration:.2s}html{scroll-behavior:auto}}
+
+/* ---- spoiler: demo results stay blurred until the room predicts ---- */
+.spoiler{position:relative;cursor:pointer}
+.spoiler>*{filter:blur(9px);transition:filter .5s var(--ease)}
+.spoiler::after{content:'predict first \00b7 click or press R';position:absolute;inset:0;z-index:2;
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+  font-size:clamp(0.6rem,1vw,0.78rem);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent)}
+.spoiler.revealed>*{filter:none}
+.spoiler.revealed::after{display:none}
+
+/* ---- title (slide 1) opening animation + shared stream motion ---- */
+@keyframes titleRise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes drawUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes walScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+@keyframes pktFlow{
+  0%{left:0;opacity:0;transform:translateY(-50%) scale(.4)}
+  9%{opacity:1;transform:translateY(-50%) scale(1)}
+  88%{opacity:1;transform:translateY(-50%) scale(1)}
+  100%{left:100%;opacity:0;transform:translateY(-50%) scale(.4)}
+}
+@keyframes srcPulse{0%{opacity:.55;transform:scale(1)}70%,100%{opacity:0;transform:scale(1.55)}}
+#s1 .wal-bg,#s1 .crumbs,#s1 .slide-content,#s1 hr.rule,#s1 .meta{position:relative}
+#s1 .crumbs,#s1 .slide-content,#s1 hr.rule,#s1 .meta{z-index:1}
+#s1 .reveal{opacity:0;animation:titleRise .85s var(--ease) forwards}
+#s1 .crumbs.reveal{animation-delay:.05s}
+#s1 .eyebrow.reveal{animation-delay:.25s}
+#s1 h1.reveal{animation-delay:.4s}
+#s1 .sub.reveal{animation-delay:.7s}
+#s1 .stream.reveal{animation-delay:1.05s}
+#s1 .t-data{position:relative;white-space:nowrap}
+#s1 .t-data::after{content:'';position:absolute;left:0;right:-.04em;bottom:.04em;height:.085em;background:var(--accent);transform:scaleX(0);transform-origin:left;animation:drawUnderline .7s var(--ease) 1.2s forwards}
+@media (prefers-reduced-motion:reduce){
+  #s1 .reveal,.wal-bg .wal-col,.stream .pkt,.stream .node.src::after,#s1 .t-data::after{animation:none}
+  #s1 .reveal{opacity:1;transform:none}#s1 .t-data::after{transform:scaleX(1)}
+  .stream .pkt{opacity:1;left:50%}
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<span class="kbd-hint">&uarr; &darr; navigate &middot; R reveal</span>
+
+<!-- ════════════════════════════════════════════════════════════
+     LESSON 5 · CHANGE DATA CAPTURE · "STREAM THE CHANGES"
+     ════════════════════════════════════════════════════════════ -->
+
+<!-- ─── 01 · TITLE ─────────────────────────────────────── -->
+<section class="slide visible" id="s1">
+  <div class="wal-bg" aria-hidden="true">
+    <div class="wal-col">
+      <span><span class="lsn">0/1A2B0</span>  INSERT orders id=1042 status=pending</span>
+      <span><span class="lsn">0/1A2C4</span>  UPDATE orders id=42 pending<span class="arr">&rarr;</span>shipped</span>
+      <span><span class="lsn">0/1A2D8</span>  INSERT orders id=1043 status=pending</span>
+      <span><span class="lsn">0/1A2F0</span>  DELETE orders id=7</span>
+      <span><span class="lsn">0/1A3104</span>  UPDATE orders id=88 shipped<span class="arr">&rarr;</span>delivered</span>
+      <span><span class="lsn">0/1A333C</span>  INSERT orders id=1044 status=pending</span>
+      <span><span class="lsn">0/1A35A0</span>  UPDATE orders id=512 pending<span class="arr">&rarr;</span>cancelled</span>
+      <span><span class="lsn">0/1A3788</span>  INSERT orders id=1045 status=pending</span>
+      <span><span class="lsn">0/1A3904</span>  UPDATE orders id=1042 pending<span class="arr">&rarr;</span>shipped</span>
+      <span><span class="lsn">0/1A3B20</span>  DELETE orders id=311</span>
+      <span><span class="lsn">0/1A3D08</span>  INSERT orders id=1046 status=pending</span>
+      <span><span class="lsn">0/1A3EE0</span>  UPDATE orders id=88 delivered<span class="arr">&rarr;</span>returned</span>
+      <span><span class="lsn">0/1A2B0</span>  INSERT orders id=1042 status=pending</span>
+      <span><span class="lsn">0/1A2C4</span>  UPDATE orders id=42 pending<span class="arr">&rarr;</span>shipped</span>
+      <span><span class="lsn">0/1A2D8</span>  INSERT orders id=1043 status=pending</span>
+      <span><span class="lsn">0/1A2F0</span>  DELETE orders id=7</span>
+      <span><span class="lsn">0/1A3104</span>  UPDATE orders id=88 shipped<span class="arr">&rarr;</span>delivered</span>
+      <span><span class="lsn">0/1A333C</span>  INSERT orders id=1044 status=pending</span>
+      <span><span class="lsn">0/1A35A0</span>  UPDATE orders id=512 pending<span class="arr">&rarr;</span>cancelled</span>
+      <span><span class="lsn">0/1A3788</span>  INSERT orders id=1045 status=pending</span>
+      <span><span class="lsn">0/1A3904</span>  UPDATE orders id=1042 pending<span class="arr">&rarr;</span>shipped</span>
+      <span><span class="lsn">0/1A3B20</span>  DELETE orders id=311</span>
+      <span><span class="lsn">0/1A3D08</span>  INSERT orders id=1046 status=pending</span>
+      <span><span class="lsn">0/1A3EE0</span>  UPDATE orders id=88 delivered<span class="arr">&rarr;</span>returned</span>
+    </div>
+  </div>
+  <div class="crumbs reveal">
+    <span class="crumb">03 OLAP</span>
+    <span class="crumb">04 Batch ETL</span>
+    <span class="crumb on">05 CDC</span>
+    <span class="crumb">06 Streaming</span>
+  </div>
+  <div class="slide-content">
+    <div class="eyebrow reveal" style="margin-bottom:0.8rem;">The architectural inflection point</div>
+    <h1 class="reveal">Capture the <span class="t-data">change</span>.</h1>
+    <p class="sub reveal" style="margin-top:clamp(0.9rem,2vh,1.4rem);">Batch asks the database <em>&ldquo;what changed since 2&nbsp;AM?&rdquo;</em> over and over. Change Data Capture stops asking. The database tells you every <span class="term">INSERT</span>, <span class="term">UPDATE</span>, and <span class="term">DELETE</span> as it commits, in order, from a log it was already writing.</p>
+    <div class="stream reveal">
+      <div class="stream-rail">
+        <span class="node src">orders</span>
+        <span class="rail">
+          <span class="pkt" style="animation-delay:0s">U</span>
+          <span class="pkt" style="animation-delay:-1.4s">I</span>
+          <span class="pkt" style="animation-delay:-2.8s">D</span>
+          <span class="pkt" style="animation-delay:-4.2s">I</span>
+        </span>
+        <span class="node dst">DuckDB</span>
+      </div>
+      <div class="cap">every commit, pushed in order &mdash; deletes too</div>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>REAL-TIME DATA PROCESSING</span><span>Postgres &rarr; DuckDB · wal2json · Debezium</span></div>
+</section>
+
+<!-- ─── 02 · RECAP L4 → THE BRIDGE ─────────────────────── -->
+<section class="slide" id="s2">
+  <div class="slide-content" style="max-width:min(92vw,920px);margin:0 auto;">
+    <div class="section-marker reveal">Recap &middot; lesson 4</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Correct. And a <em>day behind.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:680px;">Last class we built a batch pipeline that moves <span class="ink-mono">orders</span> from Postgres to DuckDB: idempotent, recoverable, schema-checked. Trustworthy numbers. But every one of them is up to 24&nbsp;hours old.</p>
+    <div class="reveal" style="display:flex;gap:clamp(1.2rem,4vw,3rem);flex-wrap:wrap;margin-top:clamp(0.7rem,1.8vh,1.2rem);">
+      <div><div class="stat">2&nbsp;AM</div><div class="stat-label">when the job ran</div></div>
+      <div><div class="stat red">~24 h</div><div class="stat-label">how stale a row can be</div></div>
+      <div><div class="stat">0</div><div class="stat-label">events between runs</div></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.7rem,1.6vh,1.1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+      <span class="ctxt"><strong>Same source. Same target. Same gap.</strong> Today we keep <span class="ink-mono">Postgres &rarr; DuckDB</span> but swap the bridge: instead of re-reading the table on a timer, we subscribe to the changes. <span class="ink-mono">wal_level=logical</span> is already set on our source from Lesson 4.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>THE BRIDGE</span><span>batch &rarr; ??? &rarr; real-time</span></div>
+</section>
+
+<!-- ─── 03 · THE NAIVE SYNC (POLLING) ──────────────────── -->
+<section class="slide" id="s3">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Phase 0 &middot; the obvious idea</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">&ldquo;Just sync what changed.&rdquo;</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">Don&rsquo;t re-read a million rows every night, only pull the ones touched since last time. Add an <span class="ink-mono">updated_at</span> column, remember a high-water mark, loop. This is <span class="term">polling CDC</span>, and it&rsquo;s where everyone starts.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">poll_sync.py, the loop everyone writes first</span></div>
+      <div class="code-body"><span class="k">while</span> <span class="fn">True</span>:
+    rows = pg.<span class="fn">execute</span>(<span class="s">"SELECT * FROM orders "</span>
+                     <span class="s">"WHERE updated_at &gt; %s"</span>, [last_sync])   <span class="cm"># what changed?</span>
+    <span class="fn">apply_to_duckdb</span>(rows)
+    last_sync = <span class="fn">max</span>(r.updated_at <span class="k">for</span> r <span class="k">in</span> rows)        <span class="cm"># move the mark</span>
+    time.<span class="fn">sleep</span>(<span class="g">5</span>)                                       <span class="cm"># poll again in 5s</span></div>
+    </div>
+    <p class="sub reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);">It looks airtight. Let&rsquo;s run it against real traffic and watch it lie.</p>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>POLLING</span><span>WHERE updated_at &gt; last_sync</span></div>
+</section>
+
+<!-- ─── 04 · LIVE: POLLING LIES ────────────────────────── -->
+<section class="slide" id="s4">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Live &middot; poll_sync.py</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">The copy that quietly <em>drifts.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:660px;">Run the poller while a workload does inserts, one <span class="ink-mono">DELETE</span>, and one raw <span class="ink-mono">UPDATE</span> that forgets to touch <span class="ink-mono">updated_at</span>. Then count both sides.</p>
+    <div class="code-block reveal spoiler" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:680px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/poll_sync.py --audit</span></div>
+      <div class="code-body"><span class="cm">source (postgres)   target (duckdb)   delta</span>
+rows      <span class="g">1,000,000</span>         <span class="r">999,996</span>        <span class="r">-4</span>
+deletes   <span class="g">12</span>                <span class="r">0 reflected</span>   <span class="r">ghosts</span>
+sum(amount) mismatch on <span class="r">3</span> rows (updated_at not set)
+
+<span class="r">DRIFT: target disagrees with source. No error was raised.</span></div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt">Nothing crashed. That&rsquo;s the danger: the poller <strong>silently lies</strong> and you only find out when finance asks why the dashboard is off by four orders.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>POLLING LIES</span><span>no error · wrong answer</span></div>
+</section>
+
+<!-- ─── 05 · WHY IT CAN'T BE FIXED ─────────────────────── -->
+<section class="slide" id="s5">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal">Phase 0 &middot; the diagnosis</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">It&rsquo;s the wrong <em>question.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:720px;">The drift isn&rsquo;t three bugs to patch, it&rsquo;s one impossible ask. <span class="ink-mono">&ldquo;What changed since T?&rdquo;</span> is a question the table physically cannot answer honestly:</p>
+    <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:760px;">
+      <li><strong>Deletes leave no trace.</strong> A removed row isn&rsquo;t in any <span class="ink-mono">SELECT</span>. You&rsquo;d need soft-deletes everywhere, your OLTP schema now warped by sync needs.</li>
+      <li><strong>Commit order &ne; <span class="ink-mono">updated_at</span> order.</strong> A txn that started at T=100 but commits at T=105 is invisible to a poll at T=103. You miss it, or you bolt on fragile high-watermark margins.</li>
+      <li><strong>Every poll competes with production.</strong> Poll often and you tax the OLTP box; poll rarely and you&rsquo;re stale. There is no good point on that dial.</li>
+    </ul>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2h6c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg>
+      <span class="ctxt">Patching each symptom just moves the lie around. The fix isn&rsquo;t a better query, it&rsquo;s a <strong>different direction of information flow</strong>.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>DIAGNOSIS</span><span>pull can't answer honestly</span></div>
+</section>
+
+<!-- ─── 06 · THE INVERSION (PULL → PUSH) ───────────────── -->
+<section class="slide invert" id="s6">
+  <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(92vw,820px);margin:0 auto;">
+    <div class="kicker reveal" style="color:var(--accent);">The inversion</div>
+    <h2 class="reveal" style="font-size:clamp(1.9rem,5.2vw,3.4rem);margin-top:0.6rem;max-width:18ch;">Stop asking. <em>Subscribe.</em></h2>
+    <p class="sub reveal" style="margin-top:clamp(0.8rem,1.8vh,1.3rem);max-width:600px;">Polling is <strong>pull</strong>: you interrogate the table on a timer. Log-based CDC is <strong>push</strong>: the database hands you a continuous, ordered stream of every committed change, deletes included, exactly once each.</p>
+    <div class="archviz reveal" style="margin-top:clamp(1rem,2.4vh,1.6rem);">
+      <div class="arch-node"><div class="an-title">PULL &middot; polling</div><hr class="an-rule"><div class="arch-line" style="text-align:center;">you &rarr; &ldquo;what changed?&rdquo;<br>&rarr; table (maybe)</div><div class="arch-foot">misses deletes &middot; competes w/ prod</div></div>
+      <div class="arch-conn"><div class="ac-top">invert</div><div class="ac-arrow"></div><div class="ac-sub">pull &rarr; push</div></div>
+      <div class="arch-node tgt"><div class="an-title">PUSH &middot; log-based</div><hr class="an-rule"><div class="arch-line" style="text-align:center;">db &rarr; &ldquo;here is what<br>changed&rdquo; &rarr; you</div><div class="arch-foot">ordered &middot; complete &middot; deletes too</div></div>
+    </div>
+  </div>
+  <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>PULL &rarr; PUSH</span><span>one inversion, every symptom gone</span></div>
+</section>
+
+<!-- ─── 07 · THE WAL WAS A LOG ALL ALONG (L1 callback) ── -->
+<section class="slide" id="s7">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Where the stream comes from</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">You&rsquo;ve had the stream <em>since Lesson 1.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:720px;">Remember the WAL? Every committed transaction writes its changes to the <span class="term">write-ahead log</span> <em>before</em> Postgres acknowledges the client. We met it as a durability mechanism. It&rsquo;s also something else:</p>
+    <p class="lede reveal" style="margin-top:clamp(0.6rem,1.5vh,1rem);max-width:760px;">The WAL is already a complete, ordered log of <em>every</em> change to <em>every</em> row, an event stream hiding in plain sight.</p>
+    <div class="callout proof reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      <span class="ctxt">CDC doesn&rsquo;t add a new mechanism to Postgres. It <strong>reads the one that was always there</strong>. The only question is how to lift raw WAL back up to &ldquo;row 42 went pending &rarr; shipped.&rdquo;</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>THE WAL</span><span>durability log = change stream</span></div>
+</section>
+
+<!-- ─── 08 · wal_level: minimal / replica / logical ────── -->
+<section class="slide" id="s8">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal">wal_level</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Three levels. Only one decodes.</h2>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <thead><tr><th>wal_level</th><th>What it records</th><th>Good for</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ink-mono">minimal</span></td><td>Just enough to recover after a crash</td><td>Single node, no replication</td></tr>
+        <tr><td><span class="ink-mono">replica</span></td><td>Page-level bytes: &ldquo;write these bytes at this offset&rdquo;</td><td>Physical replicas, byte-for-byte</td></tr>
+        <tr class="hot"><td><span class="ink-mono">logical</span></td><td>Table, op, column values, before &amp; after</td><td><strong>CDC</strong>, this is what we need</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span class="ctxt">A <span class="ink-mono">replica</span>-level WAL says &ldquo;write these bytes to that page&rdquo;, it&rsquo;s <em>below</em> the level of tables and rows, so you can&rsquo;t reconstruct &ldquo;status: pending&rarr;shipped&rdquo; from it. <strong>Logical decoding</strong> lifts the WAL back up to table + operation + values.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>WAL_LEVEL</span><span>logical = decodable changes</span></div>
+</section>
+
+<!-- ─── 09 · DECODING ARCHITECTURE ─────────────────────── -->
+<section class="slide" id="s9">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal">The three pieces</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Slot, plugin, publication.</h2>
+    <div class="archviz reveal" style="margin-top:clamp(0.7rem,1.8vh,1.2rem);">
+      <div class="arch-node"><div class="an-title">POSTGRES</div><hr class="an-rule"><div class="arch-row"><span>orders table</span><span class="num">DML</span></div><div class="arch-row"><span>WAL (logical)</span><span class="num">ordered</span></div><div class="arch-foot">the source of truth</div></div>
+      <div class="arch-conn"><div class="ac-top">replication slot</div><div class="ac-arrow"></div><div class="ac-sub">+ wal2json plugin</div></div>
+      <div class="arch-node tgt"><div class="an-title">YOUR CONSUMER</div><hr class="an-rule"><div class="arch-row"><span>read JSON events</span><span class="num">I/U/D</span></div><div class="arch-row"><span>apply &rarr; DuckDB</span><span class="num">sink</span></div><div class="arch-foot">advances the slot</div></div>
+    </div>
+    <ul class="bullets reveal" style="margin-top:clamp(0.6rem,1.5vh,1rem);max-width:820px;">
+      <li><strong>Replication slot</strong> &mdash; a named, durable cursor into the WAL. Postgres won&rsquo;t recycle WAL the slot hasn&rsquo;t consumed, so you can disconnect and resume with zero loss. (Also: a forgotten slot fills the disk. More later.)</li>
+      <li><strong>Output plugin</strong> &mdash; turns internal WAL records into a readable shape. <span class="ink-mono">pgoutput</span> (binary, built-in) or <span class="ink-mono">wal2json</span> (JSON). We&rsquo;ll read JSON.</li>
+      <li><strong>Publication</strong> &mdash; declares which tables are in the stream. Everything else is filtered out.</li>
+    </ul>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ARCHITECTURE</span><span>slot · plugin · publication</span></div>
+</section>
+
+<!-- ─── 10 · REPLICA IDENTITY FULL ─────────────────────── -->
+<section class="slide" id="s10">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">A setting that bites</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Do you need the <em>old</em> values?</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">By default, an UPDATE/DELETE event carries only the <strong>primary key</strong> in its &ldquo;before&rdquo; image. You learn <em>which</em> row changed and its new values, but not what it used to be.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:640px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">psql</span></div>
+      <div class="code-body"><span class="cm">-- include all old column values in the before-image</span>
+<span class="k">ALTER TABLE</span> orders <span class="k">REPLICA IDENTITY</span> <span class="fn">FULL</span>;</div>
+    </div>
+    <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:760px;">
+      <li><strong>Maintaining a materialized view?</strong> New values are enough, the default is fine.</li>
+      <li><strong>Auditing or event sourcing?</strong> You need before &amp; after, set <span class="ink-mono">REPLICA IDENTITY FULL</span>, and accept fatter WAL entries.</li>
+    </ul>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>REPLICA IDENTITY</span><span>FULL = old values too</span></div>
+</section>
+
+<!-- ─── 11 · OUTPUT PLUGINS: pgoutput vs wal2json ──────── -->
+<section class="slide" id="s11">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal">What we&rsquo;ll read</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Read JSON, not bytes.</h2>
+    <div class="two-col reveal" style="margin-top:clamp(0.6rem,1.5vh,1rem);flex:unset;">
+      <div class="col">
+        <div class="col-label" style="color:var(--muted);">pgoutput</div>
+        <div class="code-block" style="flex:unset;">
+          <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">binary protocol</span></div>
+          <div class="code-body"><span class="cm">B</span> begin   <span class="cm">R</span> relation
+<span class="cm">I</span> insert  <span class="cm">U</span> update
+<span class="cm">D</span> delete  <span class="cm">C</span> commit
+<span class="r">&rarr; struct.unpack by byte offset</span></div>
+        </div>
+        <div class="arch-foot" style="text-align:left;">Built-in. What Debezium uses. Teaches byte bookkeeping, not CDC.</div>
+      </div>
+      <div class="col">
+        <div class="col-label" style="color:var(--accent);">wal2json &nbsp;&larr; us</div>
+        <div class="code-block" style="flex:unset;">
+          <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">readable JSON</span></div>
+          <div class="code-body"><span class="fn">{</span><span class="s">"action"</span>:<span class="s">"U"</span>,<span class="s">"table"</span>:<span class="s">"orders"</span>,
+ <span class="s">"identity"</span>:<span class="fn">{</span><span class="s">"id"</span>:<span class="g">42</span><span class="fn">}</span>,
+ <span class="s">"columns"</span>:[<span class="fn">{</span><span class="s">"name"</span>:<span class="s">"status"</span>,
+   <span class="s">"value"</span>:<span class="s">"shipped"</span><span class="fn">}</span>]<span class="fn">}</span></div>
+        </div>
+        <div class="arch-foot" style="text-align:left;">JSON you can read at a glance. The lesson stays about CDC.</div>
+      </div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg>
+      <span class="ctxt">We&rsquo;ll <strong>peek at pgoutput once</strong> to demystify it, then build the real consumer on <span class="ink-mono">wal2json</span>. The slot, the LSN, the lag, the failure modes, those concepts transfer to <em>any</em> CDC system; the byte format does not.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>OUTPUT PLUGIN</span><span>wal2json: concepts over bytes</span></div>
+</section>
+
+<!-- ─── BUILD-IT-BY-HAND DIVIDER ───────────────────────── -->
+<section class="slide invert" id="s12">
+  <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(92vw,780px);margin:0 auto;">
+    <div class="kicker reveal" style="color:var(--accent);">Part one</div>
+    <h2 class="reveal" style="font-size:clamp(2rem,5.5vw,3.6rem);margin-top:0.6rem;">Build the consumer by hand.</h2>
+    <p class="sub reveal" style="margin-top:clamp(0.8rem,1.8vh,1.3rem);max-width:580px;">No Debezium yet. A slot, a Python loop, and DuckDB, so when the production tool &ldquo;just works&rdquo; later, you know exactly which moving parts it&rsquo;s hiding.</p>
+    <div class="stream reveal" style="margin:clamp(1rem,2.4vh,1.6rem) auto 0;max-width:min(80vw,460px);">
+      <div class="stream-rail">
+        <span class="node src">a slot</span>
+        <span class="rail">
+          <span class="pkt" style="animation-delay:0s">I</span>
+          <span class="pkt" style="animation-delay:-2.8s">U</span>
+        </span>
+        <span class="node dst">live sync</span>
+      </div>
+    </div>
+  </div>
+  <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>BUILD IT BY HAND</span><span>psycopg3 · wal2json · DuckDB</span></div>
+</section>
+
+<!-- ─── 13 · SETUP ─────────────────────────────────────── -->
+<section class="slide" id="s13">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Setup</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Same box. One flag already flipped.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;">The Lesson 4 Compose file already ships <span class="ink-mono">wal_level=logical</span> and a Postgres image with <span class="ink-mono">wal2json</span> bundled. Bring it up and seed the same <span class="ink-mono">orders</span> table.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:740px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+      <div class="code-body"><span class="v">$</span> docker compose up -d                <span class="cm"># postgres (wal_level=logical) + wal2json</span>
+<span class="v">$</span> uv run python src/seed_data.py      <span class="cm"># 1M orders, the L4 dataset</span>
+<span class="v">$</span> uv run python src/setup_cdc.py      <span class="cm"># slot + publication + REPLICA IDENTITY</span>
+<span class="v">$</span> uv run python src/cdc_consumer.py   <span class="cm"># the loop we build next</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+      <span class="ctxt">Source <span class="ink-mono">bench</span>, target <span class="ink-mono">data/cdc.duckdb</span>. Every step is <span class="ink-mono">uv run python src/&lt;script&gt;.py</span>, drive it with <span class="ink-mono">opencode</span>; prompts in the annex.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ENVIRONMENT</span><span>docker compose · uv run</span></div>
+</section>
+
+<!-- ─── 14 · CREATE SLOT + PUBLICATION ─────────────────── -->
+<section class="slide" id="s14">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Phase 1 &middot; setup_cdc.py</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Open the cursor into the WAL.</h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">one-time setup, SQL</span></div>
+      <div class="code-body"><span class="k">ALTER TABLE</span> orders <span class="k">REPLICA IDENTITY</span> <span class="fn">FULL</span>;        <span class="cm">-- before + after</span>
+<span class="k">CREATE PUBLICATION</span> orders_pub <span class="k">FOR TABLE</span> orders;  <span class="cm">-- what's in scope</span>
+
+<span class="cm">-- a durable, named cursor using the wal2json plugin</span>
+<span class="k">SELECT</span> <span class="fn">pg_create_logical_replication_slot</span>(
+         <span class="s">'orders_slot'</span>, <span class="s">'wal2json'</span>);
+<span class="cm">-- &rarr; ('orders_slot', '0/19A3B78')   the consistent_point LSN</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      <span class="ctxt">That returned <span class="term">LSN</span> (Log Sequence Number) is a position in the WAL. <strong>Everything after it</strong> flows through the slot; everything before, the million rows already there, does not. Hold that thought, it&rsquo;s the snapshot problem in Part&nbsp;two.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SLOT</span><span>publication + consistent_point</span></div>
+</section>
+
+<!-- ─── 15 · LIVE: TAIL THE SLOT ───────────────────────── -->
+<section class="slide" id="s15">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Live &middot; tail the stream</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Type an UPDATE. Watch it arrive.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:640px;">In one terminal, run DML. In another, the slot emits JSON, deletes included, in commit order.</p>
+    <div class="two-col reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;">
+      <div class="col">
+        <div class="col-label" style="color:var(--muted);">terminal 1, psql</div>
+        <div class="code-block" style="flex:unset;">
+          <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">source</span></div>
+          <div class="code-body"><span class="k">UPDATE</span> orders <span class="k">SET</span> status=<span class="s">'shipped'</span>
+  <span class="k">WHERE</span> id=<span class="g">42</span>;
+<span class="k">DELETE FROM</span> orders <span class="k">WHERE</span> id=<span class="g">7</span>;</div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-label" style="color:var(--accent);">terminal 2, peek the slot</div>
+        <div class="code-block" style="flex:unset;">
+          <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">pg_logical_slot_peek_changes() &rarr; wal2json</span></div>
+          <div class="code-body"><span class="fn">{</span><span class="s">"action"</span>:<span class="s">"U"</span>,<span class="s">"table"</span>:<span class="s">"orders"</span>,
+ <span class="s">"identity"</span>:<span class="fn">{</span><span class="s">"id"</span>:<span class="g">42</span><span class="fn">}</span>,...<span class="fn">}</span>
+<span class="fn">{</span><span class="s">"action"</span>:<span class="s">"D"</span>,<span class="s">"table"</span>:<span class="s">"orders"</span>,
+ <span class="s">"identity"</span>:<span class="fn">{</span><span class="s">"id"</span>:<span class="g">7</span><span class="fn">}</span><span class="fn">}</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">The <span class="ink-mono">DELETE</span> that polling couldn&rsquo;t see arrives as a first-class <span class="ink-mono">"action":"D"</span>. No <span class="ink-mono">updated_at</span>, no soft-deletes, no clock math.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>LIVE STREAM</span><span>I / U / D, in commit order</span></div>
+</section>
+
+<!-- ─── 16 · APPLY TO DUCKDB (idempotent, L4 callback) ── -->
+<section class="slide" id="s16">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="section-marker reveal">Phase 2 &middot; the sink</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">You already built the apply logic.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">Map each event onto DuckDB. For updates, use <span class="ink-mono">DELETE + INSERT</span>, the exact idempotent move from Lesson 4. Apply the same event twice and the row is identical.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">cdc_consumer.py, DuckDBSink</span></div>
+      <div class="code-body"><span class="k">def</span> <span class="fn">apply</span>(self, ev):
+    <span class="k">if</span> ev[<span class="s">"action"</span>] <span class="k">in</span> (<span class="s">"I"</span>, <span class="s">"U"</span>, <span class="s">"D"</span>):
+        duck.<span class="fn">execute</span>(<span class="s">"DELETE FROM orders WHERE id = ?"</span>, [ev.id])
+    <span class="k">if</span> ev[<span class="s">"action"</span>] <span class="k">in</span> (<span class="s">"I"</span>, <span class="s">"U"</span>):
+        duck.<span class="fn">execute</span>(<span class="s">"INSERT INTO orders VALUES (?, ?, ?, ?, ?)"</span>, ev.row)
+    <span class="cm"># delete runs for I too: a replayed INSERT is a no-op, not a dup key.</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
+      <span class="ctxt">Why not plain <span class="ink-mono">UPDATE ... SET</span>? Because any CDC consumer can crash and <strong>replay</strong> events. Idempotent apply means replay is harmless, the property that lets you sleep, again.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>THE SINK</span><span>delete+insert = idempotent</span></div>
+</section>
+
+<!-- ─── 17 · LSN FEEDBACK = THE WATERMARK (L4 callback) ── -->
+<section class="slide" id="s17">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Phase 3 &middot; the main loop</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">The watermark, <em>handed to you.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:720px;">In Lesson 4 you computed a watermark to know what was already loaded. Here Postgres keeps it for you: <span class="ink-mono">confirmed_flush_lsn</span>. The loop is three verbs: <strong>peek</strong> at pending changes (advances nothing), <strong>apply</strong> them, and only then <strong>advance</strong> the slot.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">cdc_consumer.py, the loop</span></div>
+      <div class="code-body">rows = pg.<span class="fn">execute</span>(<span class="s">"SELECT lsn, data FROM pg_logical_slot_peek_changes(</span>
+                  <span class="s">'orders_slot', NULL, 5000, ...)"</span>)   <span class="cm"># 1. peek — advances nothing</span>
+<span class="k">for</span> lsn, data <span class="k">in</span> rows:
+    sink.<span class="fn">apply</span>(json.<span class="fn">loads</span>(data), lsn)               <span class="cm"># 2. write it</span>
+pg.<span class="fn">execute</span>(<span class="s">"SELECT pg_replication_slot_advance(</span>
+            <span class="s">'orders_slot', %s)"</span>, [last_commit_lsn])  <span class="cm"># 3. THEN confirm</span></div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt">Advancing tells Postgres &ldquo;recycle WAL up to here.&rdquo; Advance <em>before</em> applying and a crash loses the change; <strong>never</strong> advance and the slot retains WAL forever. And advance only to a <strong>commit marker&rsquo;s LSN</strong>, mid-transaction positions aren&rsquo;t safe points. Rule: <strong>apply, then confirm.</strong> Kafka makes you play this exact game again; there it&rsquo;s called <em>committing your offset</em> (Lesson&nbsp;6).</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>PEEK &middot; APPLY &middot; ADVANCE</span><span>apply &rarr; then confirm</span></div>
+</section>
+
+<!-- ─── 18 · LIVE: LAG UNDER LOAD ──────────────────────── -->
+<section class="slide" id="s18">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Live &middot; keep up under load</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Run the L1 generator. Watch the lag.</h2>
+    <div class="reveal spoiler" style="display:flex;gap:clamp(1.2rem,4vw,3rem);flex-wrap:wrap;margin-top:clamp(0.6rem,1.5vh,1.1rem);">
+      <div><div class="stat">1,000</div><div class="stat-label">inserts / sec</div></div>
+      <div><div class="stat">256 KB</div><div class="stat-label">lag, holding steady</div></div>
+      <div><div class="stat n" style="color:var(--ink);">~80 ms</div><div class="stat-label">source &rarr; DuckDB</div></div>
+    </div>
+    <div class="code-block reveal spoiler" style="margin-top:clamp(0.6rem,1.5vh,1rem);flex:unset;max-width:720px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/watch_lag.py</span></div>
+      <div class="code-body"><span class="cm">slot         lag_bytes   applied/s   verdict</span>
+orders_slot  <span class="g">262,144</span>     <span class="g">1,004</span>       <span class="n">keeping pace</span>
+orders_slot  <span class="g">245,760</span>     <span class="g">998</span>         <span class="n">keeping pace</span>
+orders_slot  <span class="g">262,144</span>     <span class="g">1,011</span>       <span class="n">keeping pace</span></div>
+    </div>
+    <p class="sub reveal" style="margin-top:clamp(0.5rem,1.2vh,0.8rem);">Lag flat = the consumer keeps pace. Lag climbing = it&rsquo;s falling behind. That single number is the whole operational story.</p>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>CONSUMER LAG</span><span>flat = healthy</span></div>
+</section>
+
+<!-- ─── 19 · LAG IS THE ONE METRIC ─────────────────────── -->
+<section class="slide" id="s19">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">The signal that matters</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">If you watch one number, watch this.</h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:780px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">the lag query</span></div>
+      <div class="code-body"><span class="k">SELECT</span> slot_name,
+       <span class="fn">pg_wal_lsn_diff</span>(<span class="fn">pg_current_wal_lsn</span>(),
+                       confirmed_flush_lsn) <span class="k">AS</span> lag_bytes
+<span class="k">FROM</span>   pg_replication_slots;</div>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg>
+      <span class="ctxt">You&rsquo;re reading the raw version of what every CDC tool dresses up: Debezium ships it as a JMX metric, Kafka Connect calls it <em>consumer lag</em>. Same distance between &ldquo;what&rsquo;s committed&rdquo; and &ldquo;what I&rsquo;ve confirmed.&rdquo;</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>THE METRIC</span><span>current_lsn &minus; confirmed_lsn</span></div>
+</section>
+
+<!-- ─── NOW-BREAK-IT DIVIDER ───────────────────────────── -->
+<section class="slide invert" id="s20">
+  <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(92vw,780px);margin:0 auto;">
+    <div class="kicker reveal" style="color:var(--accent);">Part two</div>
+    <h2 class="reveal" style="font-size:clamp(2rem,5.5vw,3.6rem);margin-top:0.6rem;">Now break it.</h2>
+    <p class="sub reveal" style="margin-top:clamp(0.8rem,1.8vh,1.3rem);max-width:580px;">A consumer that works in the demo is the easy part. The real lesson is the four ways production bites: the data that existed before the slot, a crash mid-stream, a column that appears, and a slot nobody is reading.</p>
+    <div class="stream reveal" style="margin:clamp(1rem,2.4vh,1.6rem) auto 0;max-width:min(80vw,460px);">
+      <div class="stream-rail">
+        <span class="node src">works in demo</span>
+        <span class="rail">
+          <span class="pkt" style="animation-delay:0s">I</span>
+          <span class="pkt" style="animation-delay:-2.8s">D</span>
+        </span>
+        <span class="node dst">survives prod</span>
+      </div>
+    </div>
+  </div>
+  <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>NOW BREAK IT</span><span>snapshot · replay · schema · disk</span></div>
+</section>
+
+<!-- ─── 21 · INITIAL SNAPSHOT PROBLEM ──────────────────── -->
+<section class="slide" id="s21">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Break 01 &middot; the missing million</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">The slot only sees the <em>future.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:720px;">Your consumer is perfect, yet DuckDB has 4&nbsp;new rows and Postgres has 1,000,004. The slot started at its <span class="ink-mono">consistent_point</span>; the million rows that existed <em>before</em> it never flowed through.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:640px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">the gap</span></div>
+      <div class="code-body"><span class="cm">postgres   orders        1,000,004</span>
+<span class="cm">duckdb     orders                4</span>   <span class="r">&larr; only post-slot changes</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l3 2M12 3a9 9 0 1 0 9 9"/><path d="M21 3v6h-6"/></svg>
+      <span class="ctxt">A change stream is not a copy. To build a full mirror you need a one-time <strong>snapshot</strong> of what was already there, stitched to the stream with no gap and no overlap.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SNAPSHOT GAP</span><span>stream &ne; copy</span></div>
+</section>
+
+<!-- ─── 22 · SNAPSHOT + STREAM = NO GAPS ───────────────── -->
+<section class="slide" id="s22">
+  <div class="slide-content" style="max-width:min(92vw,920px);margin:0 auto;">
+    <div class="section-marker reveal">Break 01 &middot; the fix</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Snapshot the past. Replay seals the seam.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:720px;">Create the slot <em>first</em>, so the stream is already buffering everything that happens next. Then bulk-copy the table, one <span class="ink-mono">SELECT</span>, one MVCC snapshot. The seam: a few changes land in <em>both</em> the copy and the stream. We don&rsquo;t fight that, the idempotent sink replays them into a no-op.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:740px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">snapshot.py</span></div>
+      <div class="code-body"><span class="cm"># 1. slot already exists &rarr; every change since is buffered for replay</span>
+duck.<span class="fn">execute</span>(<span class="s">"ATTACH 'postgres://...' AS pg (TYPE postgres)"</span>)
+duck.<span class="fn">execute</span>(<span class="s">"INSERT INTO orders SELECT ... FROM pg.orders"</span>)  <span class="cm"># the past</span>
+
+<span class="cm"># 2. drain the slot: overlapping events re-apply as delete+insert &rarr; no-op</span>
+<span class="v">$</span> uv run python src/cdc_consumer.py                           <span class="cm"># the future</span></div>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">Debezium&rsquo;s &ldquo;initial snapshot&rdquo; phase gets an <em>exact</em>, no-overlap stitch by exporting the slot&rsquo;s snapshot over the replication protocol. We trade that ceremony for plain SQL <strong>plus idempotency</strong>, and converge to the same mirror. Either way the snapshot can run for hours on a big table; now you know what it&rsquo;s doing and why.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SNAPSHOT, THEN DRAIN</span><span>idempotency absorbs the seam</span></div>
+</section>
+
+<!-- ─── 23 · LIVE: CRASH & REPLAY ──────────────────────── -->
+<section class="slide" id="s23">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Break 02 &middot; live</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Kill it mid-stream. Restart. Same state.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:660px;"><span class="ink-mono">Ctrl-C</span> the consumer while the generator runs. Wait. Restart. It resumes from the last confirmed LSN, replays a few events, and the checksum holds.</p>
+    <div class="code-block reveal spoiler" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/cdc_consumer.py   # after a kill</span></div>
+      <div class="code-body"><span class="cm">applied 50,123 events ... ^C  (killed)</span>
+<span class="cm">restart -&gt; resuming from confirmed LSN 0/3A2F108</span>
+replayed <span class="g">12</span> events already in DuckDB <span class="n">(no-op, idempotent)</span>
+checksum <span class="n">b04a42b3c882</span> == pre-crash <span class="n">b04a42b3c882</span>
+<span class="n">AT-LEAST-ONCE: no loss, replay harmless.</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
+      <span class="ctxt">CDC is <span class="term">at-least-once</span>, the default almost everywhere. You don&rsquo;t lose events; you may re-see a few. The idempotent sink from Part&nbsp;one is what makes that safe instead of corrupting. Getting to <em>exactly</em>-once end-to-end, when you can&rsquo;t lean on an idempotent sink, is the entire subject of Lesson&nbsp;8.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>CRASH &amp; REPLAY</span><span>at-least-once + idempotency</span></div>
+</section>
+
+<!-- ─── 24 · SCHEMA EVOLUTION ──────────────────────────── -->
+<section class="slide" id="s24">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Break 03 &middot; the moving shape</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">A column appears mid-stream.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">Upstream runs <span class="ink-mono">ALTER TABLE orders ADD COLUMN notes TEXT</span>. The stream doesn&rsquo;t break, wal2json simply starts emitting the new field. Your consumer has to notice and react.</p>
+    <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:760px;">
+      <li><strong>Detect</strong> the unseen key in the event payload, compare against the columns DuckDB knows.</li>
+      <li><strong>Adapt</strong>: issue <span class="ink-mono">ALTER TABLE ... ADD COLUMN</span> on the target, the production choice, and keep going.</li>
+      <li><strong>Or crash loud</strong>, if silent divergence is worse than an outage for your use case.</li>
+    </ul>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M12 4v16M4 8l4-4 4 4"/></svg>
+      <span class="ctxt"><strong>CDC is a schema contract between producer and consumer.</strong> Evolution is the hardest operational problem in streaming, and the reason <span class="term">schema registries</span> exist. We meet them properly in Lesson&nbsp;11.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SCHEMA EVOLUTION</span><span>the producer/consumer contract</span></div>
+</section>
+
+<!-- ─── 24b · LIVE: SCHEMA DRIFT, SILENT THEN LOUD ─────── -->
+<section class="slide" id="s24b">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Break 03 &middot; live</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Our consumer lies first. Then we make it <em>loud.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">Add the column upstream, update a row, and let the consumer run with <span class="ink-mono">--ignore-drift</span>: it applies the event and silently drops the new field. The same silent lie polling had, except this time <em>we</em> wrote it.</p>
+    <div class="code-block reveal spoiler" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:760px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/experiment_schema_drift.py</span></div>
+      <div class="code-body"><span class="cm">ACT 1 · --ignore-drift</span>   source row: notes=<span class="s">'gift wrap, fragile'</span>
+                       mirror row: <span class="r">column does not exist · NO ERROR RAISED</span>
+
+<span class="cm">ACT 2 · strict (default)</span>
+<span class="r">SCHEMA DRIFT — failing loud, on purpose.</span>
+source sent column(s) [<span class="s">'notes'</span>] the mirror doesn't have
+  <span class="n">slot NOT advanced — zero events lost.</span>  fix the mirror, rerun, it replays.</div>
+    </div>
+    <div class="callout proof reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">Failing loud costs <strong>nothing</strong> here, and that&rsquo;s not luck: the slot only advances after apply, so the crash leaves the event waiting. <strong>Confirm-after-apply is what makes &ldquo;stop&rdquo; a safe answer to drift.</strong></span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>BREAK 03 &middot; LIVE</span><span>silent drop &rarr; loud stop</span></div>
+</section>
+
+<!-- ─── 25 · LIVE: DISK-FULL FROM ABANDONED SLOT ───────── -->
+<section class="slide" id="s25">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Break 04 &middot; live</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">A forgotten slot is a <em>time bomb.</em></h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:680px;">Create a slot, never consume it, run the generator. Postgres can&rsquo;t recycle WAL the slot hasn&rsquo;t confirmed, so it piles up until the disk fills and writes stop.</p>
+    <div class="code-block reveal spoiler" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">$ uv run python src/experiment_abandon_slot.py</span></div>
+      <div class="code-body"><span class="cm">slot 'abandoned_slot' created, nothing is reading it</span>
+retained_wal   <span class="g">120 MB</span>  ...  <span class="g">480 MB</span>  ...  <span class="r">2.1 GB</span>
+postgres: <span class="r">FATAL: could not write to WAL, no space left</span>
+<span class="cm">fix -&gt; SELECT pg_drop_replication_slot('abandoned_slot');</span></div>
+    </div>
+    <div class="callout danger reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span class="ctxt">An unmonitored slot can take down the <em>source</em> database. <span class="ink-mono">max_slot_wal_keep_size</span> (PG&nbsp;13+) is the safety valve: it drops a greedy slot to save the DB, at the cost of a forced re-snapshot.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>DISK-FULL</span><span>slot retains WAL → outage</span></div>
+</section>
+
+<!-- ─── 26 · THE RULE ──────────────────────────────────── -->
+<section class="slide" id="s26">
+  <div class="slide-content" style="align-items:flex-start;justify-content:center;max-width:min(92vw,860px);margin:0 auto;">
+    <div class="section-marker reveal">Break &middot; the one rule</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);max-width:18ch;">Every slot needs a <em>monitored</em> consumer.</h2>
+    <p class="sub reveal" style="margin-top:clamp(0.6rem,1.5vh,1rem);max-width:720px;">A replication slot is a promise the source keeps WAL for you. Break the promise, by abandoning or stalling the consumer, and the source pays in disk. So the operational contract is short:</p>
+    <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:760px;">
+      <li>Alert when <span class="ink-mono">confirmed_flush_lsn</span> falls behind <span class="ink-mono">pg_current_wal_lsn()</span>.</li>
+      <li>Set <span class="ink-mono">max_slot_wal_keep_size</span> so a stuck consumer can never sink the database.</li>
+      <li>Keep the apply path idempotent, so the inevitable replay is a no-op.</li>
+    </ul>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>THE RULE</span><span>no slot without a watcher</span></div>
+</section>
+
+<!-- ─── PRODUCTION DIVIDER ─────────────────────────────── -->
+<section class="slide invert" id="s27">
+  <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(92vw,780px);margin:0 auto;">
+    <div class="kicker reveal" style="color:var(--accent);">Part three</div>
+    <h2 class="reveal" style="font-size:clamp(1.9rem,5.4vw,3.5rem);margin-top:0.6rem;">You just built <em>Debezium.</em></h2>
+    <p class="sub reveal" style="margin-top:clamp(0.8rem,1.8vh,1.3rem);max-width:600px;">Slot, snapshot, stream, LSN feedback, idempotent apply, lag monitoring. That&rsquo;s the whole job. The production tool is those same pieces, hardened and automated, not a black box anymore.</p>
+  </div>
+  <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>THE PRODUCTION ANSWER</span><span>Kafka Connect · Debezium</span></div>
+</section>
+
+<!-- ─── 28 · DEBEZIUM: REGISTER A CONNECTOR ────────────── -->
+<section class="slide" id="s28">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Show &amp; tell &middot; Debezium</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">The whole consumer, as config.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">Debezium is a Kafka&nbsp;Connect source connector. You don&rsquo;t write the loop, you <span class="ink-mono">POST</span> a JSON config and it creates the slot, snapshots, streams, and publishes events to Kafka topics.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:740px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">curl -X POST localhost:8083/connectors</span></div>
+      <div class="code-body"><span class="s">"connector.class"</span>: <span class="s">"...PostgresConnector"</span>,
+<span class="s">"database.dbname"</span>: <span class="s">"bench"</span>,   <span class="s">"table.include.list"</span>: <span class="s">"public.orders"</span>,
+<span class="s">"plugin.name"</span>:    <span class="s">"pgoutput"</span>, <span class="cm"># the binary plugin you skipped</span>
+<span class="s">"slot.name"</span>:      <span class="s">"debezium_slot"</span>,
+<span class="s">"publication.name"</span>: <span class="s">"dbz_publication"</span>,  <span class="s">"topic.prefix"</span>: <span class="s">"cdc"</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+      <span class="ctxt">Notice <span class="ink-mono">pgoutput</span>, Debezium parses the binary protocol so you never have to. Every field here maps to a decision you made by hand: which tables, which slot, where the snapshot lands.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>DEBEZIUM</span><span>the loop, declared not coded</span></div>
+</section>
+
+<!-- ─── 29 · YOU BUILT X → DEBEZIUM DOES X ─────────────── -->
+<section class="slide" id="s29">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal">Show &amp; tell &middot; the mapping</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Nothing new. Everything automated.</h2>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <thead><tr><th>What you built by hand</th><th>What Debezium calls it</th></tr></thead>
+      <tbody>
+        <tr><td>Create slot + consistent_point</td><td>Managed slot &amp; offset storage</td></tr>
+        <tr><td><span class="ink-mono">snapshot.py</span> at the LSN</td><td>Initial snapshot phase</td></tr>
+        <tr><td><span class="ink-mono">slot_advance(commit_lsn)</span></td><td>Offset commits to Kafka</td></tr>
+        <tr><td>delete+insert idempotent sink</td><td>Idempotent / exactly-once delivery</td></tr>
+        <tr><td>detect <span class="ink-mono">ALTER</span>, reconcile</td><td>Schema history topic + registry</td></tr>
+        <tr class="hot"><td><span class="ink-mono">watch_lag.py</span></td><td>JMX lag metric you must alert on</td></tr>
+      </tbody>
+    </table>
+    <div class="callout proof reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">In production you&rsquo;ll run Debezium, not your loop. But now its failure modes, snapshot time, slot lag, schema drift, are things you&rsquo;ve <em>felt</em>, not bullet points in its docs.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>BY HAND &rarr; DEBEZIUM</span><span>same parts, hardened</span></div>
+</section>
+
+<!-- ─── 30 · OUTBOX PATTERN TEASER ─────────────────────── -->
+<section class="slide" id="s30">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Looking ahead &middot; the outbox</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">One more trick CDC unlocks.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:720px;">A classic distributed-systems trap: an app must both write to the DB <em>and</em> publish an event. Do them separately and one can succeed while the other fails. The <span class="term">outbox pattern</span> dissolves it.</p>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:720px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">one local transaction, no 2PC</span></div>
+      <div class="code-body"><span class="k">BEGIN</span>;
+  <span class="k">INSERT INTO</span> orders  (...)  <span class="k">VALUES</span> (...);
+  <span class="k">INSERT INTO</span> outbox  (event_type, payload) <span class="k">VALUES</span> (...);
+<span class="k">COMMIT</span>;        <span class="cm"># CDC streams the outbox row downstream, exactly-once</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.5z"/></svg>
+      <span class="ctxt">A distributed-consistency problem becomes a local transaction plus a CDC read. This is the backbone of Lessons&nbsp;6&ndash;7, once Kafka is the thing reading the stream.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>OUTBOX</span><span>dual-write → local txn + CDC</span></div>
+</section>
+
+<!-- ─── 31 · SYNTHESIS: POLLING vs LOG-BASED ───────────── -->
+<section class="slide" id="s31">
+  <div class="slide-content" style="max-width:min(92vw,940px);margin:0 auto;">
+    <div class="section-marker reveal">Synthesis</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">One inversion, every symptom gone.</h2>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <thead><tr><th></th><th>Polling (pull)</th><th>Log-based CDC (push)</th></tr></thead>
+      <tbody>
+        <tr><td>Deletes</td><td class="hot">invisible</td><td>first-class event</td></tr>
+        <tr><td>Freshness</td><td class="hot">stale to last poll</td><td>sub-second</td></tr>
+        <tr><td>Load on source</td><td class="hot">every poll queries</td><td>one slot reads the WAL</td></tr>
+        <tr><td>Completeness</td><td class="hot">misses skewed commits</td><td>ordered &amp; complete</td></tr>
+        <tr><td>Correctness</td><td class="hot">drifts silently</td><td>exact, replay-safe</td></tr>
+      </tbody>
+    </table>
+    <div class="callout proof reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span class="ctxt">We didn&rsquo;t fix the four polling symptoms one by one. We changed the <strong>direction of information flow</strong>, and they stopped existing.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>SYNTHESIS</span><span>pull drifts · push is exact</span></div>
+</section>
+
+<!-- ─── 32 · THE NEW WALL → L6 ─────────────────────────── -->
+<section class="slide invert" id="s32">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal" style="border-color:var(--accent);">What&rsquo;s next</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">A stream chained to <em>one</em> source.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:720px;">CDC is real-time and correct, but the stream is welded to Postgres. Want a second consumer? A second slot, double the WAL load. A consumer stalls? The <em>source</em> hoards WAL toward disk-full. The source can&rsquo;t be your buffer.</p>
+    <div class="archviz reveal" style="margin-top:clamp(0.8rem,2vh,1.3rem);">
+      <div class="arch-node"><div class="an-title">POSTGRES</div><hr class="an-rule"><div class="arch-line" style="text-align:center;">1 slot per consumer<br>slow reader &rarr; disk fills</div></div>
+      <div class="arch-conn"><div class="ac-top">needs</div><div class="ac-arrow"></div><div class="ac-sub">a durable buffer</div></div>
+      <div class="arch-node tgt"><div class="an-title">A LOG IN THE MIDDLE</div><hr class="an-rule"><div class="arch-line" style="text-align:center;">many consumers,<br>own pace, retained</div><div class="arch-foot">Kafka &rarr; Lesson 6</div></div>
+    </div>
+    <p class="sub reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);max-width:720px;">Lesson&nbsp;6: <strong>Kafka</strong>, the commit log as a service. The same append-only log idea, from L1&rsquo;s WAL to this slot, now decoupled so producers and consumers stop holding each other hostage.</p>
+  </div>
+  <div class="meta" style="position:absolute;bottom:clamp(0.8rem,2vh,1.4rem);left:0;right:0;padding:0 clamp(1.4rem,5vw,4.5rem);"><span>WHAT&rsquo;S NEXT</span><span>decouple the stream &rarr; Kafka</span></div>
+</section>
+
+<!-- ─── 33 · TAKE-HOME ─────────────────────────────────── -->
+<section class="slide" id="s33">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="section-marker reveal">Take-home</div>
+    <h2 class="reveal" style="margin-top:clamp(0.4rem,1vh,0.8rem);">Ship a CDC mirror you can trust.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:720px;">Maintain a live DuckDB mirror of <span class="ink-mono">orders</span> from the Postgres WAL, and prove it survives the four failure modes.</p>
+    <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:780px;">
+      <li><strong>Snapshot + stream</strong> with no gap or overlap, verified by row-count and checksum parity.</li>
+      <li><strong>Idempotent apply</strong> &mdash; kill the consumer mid-load, restart, prove identical checksum.</li>
+      <li><strong>Lag dashboard</strong> &mdash; print <span class="ink-mono">lag_bytes</span> and show it flat under the L1 generator.</li>
+      <li><strong>Schema change</strong> &mdash; add a column upstream; the mirror keeps up or fails loud, your call, documented.</li>
+    </ul>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+      <span class="ctxt">Deliverable standard: the grader runs your consumer, kills it, restarts it, and diffs Postgres against DuckDB. Parity = pass.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>DELIVERABLE</span><span>snapshot · replay · lag · schema</span></div>
+</section>
+
+<!-- ─── 34 · ANNEX · RUN IT ────────────────────────────── -->
+<section class="slide" id="s34">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="kicker reveal">Annex</div>
+    <h2 class="reveal" style="margin-top:clamp(0.3rem,0.8vh,0.6rem);">Run it yourself.</h2>
+    <div class="code-block reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);flex:unset;max-width:780px;">
+      <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">end-to-end</span></div>
+      <div class="code-body"><span class="v">$</span> docker compose up -d                         <span class="cm"># wal_level=logical + wal2json</span>
+<span class="v">$</span> uv run python src/seed_data.py                <span class="cm"># 1M orders</span>
+<span class="v">$</span> uv run python src/setup_cdc.py                <span class="cm"># slot + publication</span>
+<span class="v">$</span> uv run python src/snapshot.py                 <span class="cm"># backfill the past</span>
+<span class="v">$</span> uv run python src/cdc_consumer.py &amp;            <span class="cm"># stream the future</span>
+<span class="v">$</span> uv run python src/watch_lag.py                <span class="cm"># prove it keeps pace</span>
+<span class="v">$</span> uv run python src/experiment_schema_drift.py  <span class="cm"># drift: silent lie vs fail loud</span>
+<span class="v">$</span> uv run python src/experiment_abandon_slot.py  <span class="cm"># watch the disk fill</span></div>
+    </div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+      <span class="ctxt">Reset anytime: <span class="ink-mono">pg_drop_replication_slot('orders_slot')</span> then re-run <span class="ink-mono">setup_cdc.py</span>. Delete <span class="ink-mono">data/cdc.duckdb</span> to start the mirror clean.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX · RUN</span><span>uv run python src/&lt;script&gt;</span></div>
+</section>
+
+<!-- ─── 35 · ANNEX · OPENCODE PROMPTS ──────────────────── -->
+<section class="slide" id="s35">
+  <div class="slide-content" style="max-width:min(92vw,880px);margin:0 auto;">
+    <div class="kicker reveal">Annex &middot; AI in the loop</div>
+    <h2 class="reveal" style="margin-top:clamp(0.3rem,0.8vh,0.6rem);">Prompts for this pipeline.</h2>
+    <p class="sub reveal" style="margin-top:0.4rem;max-width:700px;">Let <span class="ink-mono">opencode</span> draft the mechanical parts; you own the correctness decisions (feedback order, idempotency, snapshot stitching).</p>
+    <div class="prompt reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <span class="plabel">consumer</span>
+      <span class="pcmd">Write a psycopg3 logical-replication consumer for slot 'orders_slot' (wal2json). Apply events to DuckDB with delete+insert, and send_feedback only AFTER each apply.</span>
+    </div>
+    <div class="prompt reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);">
+      <span class="plabel">snapshot</span>
+      <span class="pcmd">Add snapshot.py: create the slot, bulk-copy orders in a REPEATABLE READ txn, then stream from the slot's consistent_point with no gap.</span>
+    </div>
+    <div class="prompt reveal" style="margin-top:clamp(0.4rem,1vh,0.7rem);">
+      <span class="plabel">break it</span>
+      <span class="pcmd">Write experiment_abandon_slot.py that creates an unconsumed slot and prints retained WAL MB every second under load.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX · OPENCODE</span><span>draft mechanics · own correctness</span></div>
+</section>
+
+<!-- ─── 36 · ANNEX · ARCHITECTURE ──────────────────────── -->
+<section class="slide" id="s36">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="kicker reveal">Annex</div>
+    <h2 class="reveal" style="margin-top:clamp(0.3rem,0.8vh,0.6rem);">Source, slot, target.</h2>
+    <div class="arch reveal" style="margin-top:clamp(0.6rem,1.5vh,1rem);">  POSTGRES (bench)                                  DUCKDB (data/cdc.duckdb)
+  ┌────────────────────┐      logical decode       ┌────────────────────┐
+  │ orders  (DML)      │   ┌──────────────────┐     │ orders  (mirror)   │
+  │ WAL  (wal_level=   │──▶│ orders_slot      │────▶│  apply: del+insert │
+  │       logical)     │   │ + wal2json (JSON)│     │  _cdc_lsn / _ts    │
+  └────────────────────┘   └──────────────────┘     └────────────────────┘
+        consistent_point ─────────▲ snapshot stitches here
+        confirmed_flush_lsn ◀────── send_feedback (apply, THEN confirm)</div>
+    <div class="callout note reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span class="ctxt">Store replication metadata (<span class="ink-mono">_cdc_lsn</span>, <span class="ink-mono">_cdc_updated_at</span>) <em>separately</em> from source columns, it&rsquo;s about the pipeline, not the data.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX · ARCHITECTURE</span><span>Postgres → slot → DuckDB</span></div>
+</section>
+
+<!-- ─── 37 · ANNEX · GOTCHAS ───────────────────────────── -->
+<section class="slide" id="s37">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="kicker reveal">Annex</div>
+    <h2 class="reveal" style="margin-top:clamp(0.3rem,0.8vh,0.6rem);">Read before you debug.</h2>
+    <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);max-width:820px;">
+      <li><strong>wal2json must be present.</strong> Vanilla <span class="ink-mono">postgres:16</span> ships <span class="ink-mono">pgoutput</span> + <span class="ink-mono">test_decoding</span> only; our image bundles <span class="ink-mono">wal2json</span>. Swap to <span class="ink-mono">test_decoding</span> if you can&rsquo;t install it.</li>
+      <li><strong><span class="ink-mono">wal_level=logical</span> needs a restart</strong> and bumped <span class="ink-mono">max_replication_slots</span> / <span class="ink-mono">max_wal_senders</span>. Already set in Compose.</li>
+      <li><strong>One slot, one reader.</strong> Two consumers on the same slot will fight; give each its own slot (and double the WAL cost, the L6 motivation).</li>
+      <li><strong>Two ways to read a slot.</strong> Plain SQL, <span class="ink-mono">peek_changes</span> + <span class="ink-mono">slot_advance</span>, is what we use. The streaming replication protocol (<span class="ink-mono">replication=True</span>, <span class="ink-mono">send_feedback</span>) is what Debezium uses, same confirm-after-apply contract, more plumbing.</li>
+      <li><strong>Drop slots you stop using.</strong> An idle slot keeps retaining WAL until it fills the disk.</li>
+    </ul>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX · GOTCHAS</span><span>plugins · restart · one reader</span></div>
+</section>
+
+<!-- ─── 38 · ANNEX · SCRIPTS ───────────────────────────── -->
+<section class="slide" id="s38">
+  <div class="slide-content" style="max-width:min(92vw,900px);margin:0 auto;">
+    <div class="kicker reveal">Annex</div>
+    <h2 class="reveal" style="margin-top:clamp(0.3rem,0.8vh,0.6rem);">Every script in this lesson.</h2>
+    <table class="dtable reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">
+      <thead><tr><th>Script</th><th>What it does</th><th>Slide</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ink-mono">poll_sync.py</span></td><td>Naive polling sync, the one that drifts</td><td>03&ndash;05</td></tr>
+        <tr><td><span class="ink-mono">setup_cdc.py</span></td><td>REPLICA IDENTITY, publication, slot</td><td>14</td></tr>
+        <tr><td><span class="ink-mono">cdc_consumer.py</span></td><td>Stream wal2json &rarr; idempotent DuckDB sink</td><td>15&ndash;17</td></tr>
+        <tr><td><span class="ink-mono">snapshot.py</span></td><td>Backfill at consistent_point, then stream</td><td>22</td></tr>
+        <tr><td><span class="ink-mono">watch_lag.py</span></td><td>Print slot lag_bytes under load</td><td>18&ndash;19</td></tr>
+        <tr><td><span class="ink-mono">experiment_schema_drift.py</span></td><td>Drift: silent lie, then fail loud</td><td>24&ndash;25</td></tr>
+        <tr><td><span class="ink-mono">experiment_abandon_slot.py</span></td><td>Disk-full from an unconsumed slot</td><td>26</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note reveal" style="margin-top:clamp(0.6rem,1.4vh,1rem);">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+      <span class="ctxt">All under <span class="ink-mono">src-lesson5/src/</span>, same layout as Lesson&nbsp;4. Reuse <span class="ink-mono">seed_data.py</span> and the L1 load generator unchanged.</span>
+    </div>
+  </div>
+  <hr class="rule" style="margin-bottom:0.7rem;">
+  <div class="meta"><span>ANNEX · SCRIPTS</span><span>src-lesson5/src/</span></div>
+</section>
+
+<script>
+/* ============ navigation + reveal orchestration ============ */
+const slides=[...document.querySelectorAll('.slide')];
+const bar=document.getElementById('progressBar');
+const io=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      const i=slides.indexOf(e.target);
+      bar.style.width=((i+1)/slides.length*100)+'%';
+    }
+  });
+},{threshold:0.5});
+slides.forEach(s=>io.observe(s));
+
+function go(n){const i=Math.max(0,Math.min(slides.length-1,n));slides[i].scrollIntoView({behavior:'smooth'});}
+function current(){
+  let best=0,bestTop=Infinity;
+  slides.forEach((s,i)=>{const t=Math.abs(s.getBoundingClientRect().top);if(t<bestTop){bestTop=t;best=i;}});
+  return best;
+}
+window.addEventListener('keydown',(e)=>{
+  if(['ArrowDown','PageDown',' '].includes(e.key)){e.preventDefault();go(current()+1);}
+  else if(['ArrowUp','PageUp'].includes(e.key)){e.preventDefault();go(current()-1);}
+  else if(e.key==='Home'){e.preventDefault();go(0);}
+  else if(e.key==='End'){e.preventDefault();go(slides.length-1);}
+  else if(e.key==='r'||e.key==='R'){slides[current()].querySelectorAll('.spoiler').forEach(s=>s.classList.add('revealed'));}
+});
+document.querySelectorAll('.spoiler').forEach(s=>s.addEventListener('click',()=>s.classList.add('revealed')));
+</script>
+
+</body>
+</html>

@@ -1,0 +1,96 @@
+# Lesson 6 — a 3-broker Apache Kafka cluster in KRaft mode (no ZooKeeper).
+#
+# Each broker is both broker AND controller (fine for a lab; production splits
+# them). The durability triplet from the slides is preconfigured:
+#   replication.factor=3 · min.insync.replicas=2 · (producers send acks=all)
+#
+# LISTENERS — the #1 Docker-Kafka gotcha, wired correctly here:
+#   PLAINTEXT  kafka-N:9092   what brokers/containers use to talk to each other
+#   EXTERNAL   localhost:N9092  what YOUR laptop dials (19092 / 29092 / 39092)
+# A client bootstraps to any address, then the broker replies "talk to me at
+# <advertised listener>" — if that address isn't reachable from where the client
+# runs, you connect and then mysteriously time out.
+#
+# Heaps are capped (512 MB) so three JVMs coexist with the other lesson stacks
+# on a laptop.
+
+x-kafka-common: &kafka-common
+  image: apache/kafka:3.9.1
+  environment: &kafka-env
+    KAFKA_PROCESS_ROLES: broker,controller
+    KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+    KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+    KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+    # the durability triplet (acks=all is the producer's side of the deal)
+    KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+    KAFKA_MIN_INSYNC_REPLICAS: 2
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+    KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+    KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+    # snappy demos: don't make the first consumer wait 3s to get partitions
+    KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    # three JVMs on one laptop — cap the heaps
+    KAFKA_HEAP_OPTS: -Xmx512m -Xms256m
+    # all brokers must agree on this; a STALE VOLUME with a different cluster
+    # ID is why "docker compose down -v" fixes brokers that refuse to join
+    CLUSTER_ID: L6LessonKafkaCluster01
+  healthcheck:
+    test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+    interval: 5s
+    timeout: 10s
+    retries: 20
+
+services:
+  kafka-1:
+    <<: *kafka-common
+    container_name: kafka-1
+    ports: ["19092:19092"]
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,EXTERNAL://localhost:19092
+    volumes: ["kafka1-data:/var/lib/kafka/data"]
+
+  kafka-2:
+    <<: *kafka-common
+    container_name: kafka-2
+    ports: ["29092:29092"]
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 2
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092,EXTERNAL://localhost:29092
+    volumes: ["kafka2-data:/var/lib/kafka/data"]
+
+  kafka-3:
+    <<: *kafka-common
+    container_name: kafka-3
+    ports: ["39092:39092"]
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 3
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:39092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092,EXTERNAL://localhost:39092
+    volumes: ["kafka3-data:/var/lib/kafka/data"]
+
+  # ── Runner: every demo script without a local python/uv (same as L4/L5) ──
+  runner:
+    build: .
+    container_name: lesson6-runner
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    environment:
+      KAFKA_BOOTSTRAP: kafka-1:9092,kafka-2:9092,kafka-3:9092
+    command: sleep infinity
+    depends_on:
+      kafka-1: {condition: service_healthy}
+      kafka-2: {condition: service_healthy}
+      kafka-3: {condition: service_healthy}
+
+volumes:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:

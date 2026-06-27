@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson 1 — How much can a single OLTP node handle?</title>
+
+    <!-- Fonts: Fraunces (display serif) + Work Sans (body) + JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,700&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES (THEME)
+           Vintage Editorial — cream, charcoal, warm accents
+           =========================================== */
+        :root {
+            --cream: #f5f2eb;
+            --cream-dark: #ebe7dc;
+            --charcoal: #1a1a1a;
+            --ink: #2c2c2c;
+            --text-secondary: #6b6560;
+            --text-muted: #9e9890;
+            --warm: #c65d2a;
+            --warm-dim: rgba(198, 93, 42, 0.1);
+            --terracotta: #c4553d;
+            --gold: #b8941f;
+            --sage: #5a7a5e;
+            --sage-dim: rgba(90, 122, 94, 0.1);
+            --dusty-blue: #5b7e9e;
+            --dusty-blue-dim: rgba(91, 126, 158, 0.1);
+            --plum: #7a5480;
+            --plum-dim: rgba(122, 84, 128, 0.1);
+            --rule: rgba(0, 0, 0, 0.08);
+
+            --font-display: 'Fraunces', serif;
+            --font-body: 'Work Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            --title-size: clamp(2.4rem, 7vw, 5.5rem);
+            --h2-size: clamp(1.5rem, 3.8vw, 2.8rem);
+            --body-size: clamp(0.75rem, 1.35vw, 1.05rem);
+            --small-size: clamp(0.62rem, 0.95vw, 0.8rem);
+            --mono-size: clamp(0.6rem, 1vw, 0.78rem);
+
+            --slide-padding: clamp(1.5rem, 5vw, 5rem);
+            --content-gap: clamp(0.5rem, 2vw, 2rem);
+            --element-gap: clamp(0.25rem, 1vw, 1rem);
+
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration: 0.6s;
+        }
+
+        /* ===========================================
+           VIEWPORT FITTING: MANDATORY BASE STYLES
+           =========================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+            background: var(--cream);
+            color: var(--charcoal);
+        }
+        html {
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: var(--cream);
+        }
+
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-height: 100%;
+            overflow: hidden;
+            padding: var(--slide-padding);
+            position: relative;
+            z-index: 2;
+        }
+
+        .card, .container, .content-box {
+            max-width: min(90vw, 1000px);
+            max-height: min(80vh, 700px);
+        }
+
+        .feature-list, .bullet-list { gap: clamp(0.4rem, 1vh, 1rem); }
+        .feature-list li, .bullet-list li { font-size: var(--body-size); line-height: 1.4; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+        }
+
+        img, .image-container {
+            max-width: 100%;
+            max-height: min(50vh, 400px);
+            object-fit: contain;
+        }
+
+        @media (max-height: 700px) {
+            :root {
+                --slide-padding: clamp(0.75rem, 3vw, 2rem);
+                --content-gap: clamp(0.4rem, 1.5vw, 1rem);
+                --title-size: clamp(1.25rem, 4.5vw, 2.5rem);
+                --h2-size: clamp(1rem, 3vw, 1.75rem);
+            }
+        }
+        @media (max-height: 600px) {
+            :root {
+                --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem);
+                --content-gap: clamp(0.3rem, 1vw, 0.75rem);
+                --title-size: clamp(1.1rem, 4vw, 2rem);
+                --body-size: clamp(0.7rem, 1.2vw, 0.95rem);
+            }
+            .nav-dots, .keyboard-hint, .decorative, .geo-accent { display: none; }
+        }
+        @media (max-height: 500px) {
+            :root {
+                --slide-padding: clamp(0.4rem, 2vw, 1rem);
+                --title-size: clamp(1rem, 3.5vw, 1.5rem);
+                --h2-size: clamp(0.9rem, 2.5vw, 1.25rem);
+                --body-size: clamp(0.65rem, 1vw, 0.85rem);
+            }
+        }
+        @media (max-width: 600px) {
+            :root { --title-size: clamp(1.25rem, 7vw, 2.5rem); }
+            .grid { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+            html { scroll-behavior: auto; }
+        }
+
+        /* ===========================================
+           GEOMETRIC ACCENTS
+           =========================================== */
+        .geo-accent { position: absolute; pointer-events: none; z-index: 1; }
+        .geo-circle {
+            width: clamp(60px, 12vw, 160px); height: clamp(60px, 12vw, 160px);
+            border-radius: 50%; border: 2px solid var(--rule);
+        }
+        .geo-dot {
+            width: clamp(6px, 1vw, 10px); height: clamp(6px, 1vw, 10px);
+            border-radius: 50%; background: var(--warm); opacity: 0.4;
+        }
+        .geo-line { height: 1px; background: var(--rule); }
+        .geo-vline { width: 1px; background: var(--rule); }
+
+        /* ===========================================
+           HORIZONTAL RULES
+           =========================================== */
+        .hr-editorial {
+            display: flex; align-items: center;
+            gap: clamp(0.5rem, 1.2vw, 1rem);
+            margin: clamp(0.5rem, 1.2vh, 1rem) 0;
+        }
+        .hr-editorial::before, .hr-editorial::after {
+            content: ''; flex: 1; height: 1px; background: var(--rule);
+        }
+        .hr-editorial span {
+            font-family: var(--font-display); font-size: var(--small-size);
+            font-weight: 400; font-style: italic; color: var(--text-muted); white-space: nowrap;
+        }
+
+        /* ===========================================
+           SECTION MARKER
+           =========================================== */
+        .section-marker {
+            display: inline-flex; align-items: center;
+            gap: clamp(0.3rem, 0.7vw, 0.5rem);
+            font-family: var(--font-body); font-size: var(--small-size);
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+            padding-bottom: clamp(0.3rem, 0.6vh, 0.5rem); border-bottom: 2px solid;
+        }
+
+        /* ===========================================
+           TYPOGRAPHY
+           =========================================== */
+        .display-title {
+            font-family: var(--font-display); font-size: var(--title-size);
+            font-weight: 900; color: var(--charcoal); line-height: 0.95; letter-spacing: -0.02em;
+        }
+        .display-title em { font-weight: 400; font-style: italic; }
+
+        h2 {
+            font-family: var(--font-display); font-size: var(--h2-size);
+            font-weight: 700; color: var(--charcoal); line-height: 1.08;
+            margin-bottom: clamp(0.4rem, 1vh, 0.8rem);
+        }
+        h2 em { font-weight: 400; font-style: italic; }
+
+        .subtitle {
+            font-family: var(--font-body); font-size: clamp(0.78rem, 1.4vw, 1.05rem);
+            color: var(--text-secondary); line-height: 1.55; max-width: 560px;
+        }
+
+        .label {
+            font-family: var(--font-body); font-size: var(--small-size);
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-muted);
+        }
+
+        /* ===========================================
+           BULLETS
+           =========================================== */
+        .bullets {
+            list-style: none; display: flex; flex-direction: column;
+            gap: clamp(0.25rem, 0.55vh, 0.42rem);
+        }
+        .bullets li {
+            font-family: var(--font-body); font-size: clamp(0.72rem, 1.2vw, 0.9rem);
+            color: var(--charcoal); display: flex; align-items: baseline; gap: 0.5rem; line-height: 1.4;
+        }
+        .bullets li::before { content: '\2014'; color: var(--warm); flex-shrink: 0; font-weight: 700; }
+
+        /* ===========================================
+           TWO-COLUMN
+           =========================================== */
+        .two-col {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: clamp(1rem, 2.5vw, 2rem); flex: 1; min-height: 0; overflow: hidden;
+        }
+        @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+        .col { display: flex; flex-direction: column; gap: clamp(0.3rem, 0.7vh, 0.55rem); min-height: 0; overflow: hidden; }
+        .col-label {
+            font-family: var(--font-body); font-size: var(--small-size);
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+        }
+
+        /* ===========================================
+           CALLOUT
+           =========================================== */
+        .callout {
+            display: flex; align-items: flex-start;
+            gap: clamp(0.35rem, 0.8vw, 0.6rem);
+            padding: clamp(0.38rem, 0.8vh, 0.6rem) clamp(0.5rem, 1.1vw, 0.9rem);
+            border-radius: 4px; border-left: 3px solid; flex-shrink: 0;
+        }
+        .callout-insight { background: var(--dusty-blue-dim); border-color: var(--dusty-blue); }
+        .callout-friction { background: rgba(196, 85, 61, 0.07); border-color: var(--terracotta); }
+        .callout-win { background: var(--sage-dim); border-color: var(--sage); }
+        .callout-icon { flex-shrink: 0; font-size: clamp(0.75rem, 1.2vw, 0.95rem); }
+        .callout-text {
+            font-family: var(--font-body); font-size: var(--small-size);
+            color: var(--ink); line-height: 1.45;
+        }
+        .callout-text code {
+            font-family: var(--font-mono); font-size: 0.88em;
+            background: rgba(0, 0, 0, 0.06); padding: 0.05em 0.35em; border-radius: 2px;
+        }
+
+        /* ===========================================
+           CODE BLOCKS
+           =========================================== */
+        .code-block {
+            background: var(--charcoal); border-radius: 4px; overflow: hidden; flex: 1; min-height: 0;
+        }
+        .code-header {
+            display: flex; align-items: center;
+            padding: clamp(0.25rem, 0.45vh, 0.35rem) clamp(0.5rem, 1vw, 0.8rem);
+            background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .code-label {
+            font-family: var(--font-mono); font-size: clamp(0.48rem, 0.75vw, 0.6rem);
+            color: rgba(255, 255, 255, 0.35); margin-left: auto;
+        }
+        .code-dot { width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+        .code-dot:nth-child(1) { background: #e06c60; }
+        .code-dot:nth-child(2) { background: #e5bf56; }
+        .code-dot:nth-child(3) { background: #69c064; }
+        .code-body {
+            padding: clamp(0.4rem, 0.9vh, 0.7rem) clamp(0.6rem, 1.2vw, 1rem);
+            font-family: var(--font-mono); font-size: var(--mono-size);
+            color: #d4d4d4; line-height: 1.65; white-space: pre; overflow: hidden;
+            text-align: left;
+        }
+        .c  { color: #6a9955; }
+        .k  { color: #569cd6; }
+        .s  { color: #ce9178; }
+        .fn { color: #dcdcaa; }
+        .v  { color: #9cdcfe; }
+        .p  { color: #d4d4d4; }
+        .g  { color: #b5cea8; }
+        .n  { color: #4ec9b0; }
+
+        /* ===========================================
+           SEQUENCE DIAGRAM (SVG)
+           =========================================== */
+        .seq-diagram {
+            width: 100%; max-width: min(90vw, 700px);
+            height: clamp(140px, 28vh, 260px);
+        }
+        .seq-diagram .lifeline {
+            stroke: var(--rule); stroke-width: 1.2; stroke-dasharray: 5 4;
+        }
+        .seq-diagram .actor-box {
+            fill: var(--cream-dark); stroke: var(--charcoal); stroke-width: 1.2; rx: 3;
+        }
+        .seq-diagram .actor-label {
+            font-family: var(--font-mono); font-size: 9px; fill: var(--charcoal);
+            text-anchor: middle; font-weight: 700;
+        }
+        .seq-diagram .msg-line {
+            stroke: var(--charcoal); stroke-width: 1.2; marker-end: url(#seq-arrow);
+        }
+        .seq-diagram .msg-line-red {
+            stroke: var(--terracotta); stroke-width: 1.6; marker-end: url(#seq-arrow-red);
+        }
+        .seq-diagram .msg-line-green {
+            stroke: var(--sage); stroke-width: 1.4; marker-end: url(#seq-arrow-green);
+        }
+        .seq-diagram .msg-label {
+            font-family: var(--font-mono); font-size: 7.5px; fill: var(--text-secondary);
+        }
+        .seq-diagram .msg-label-bold {
+            font-family: var(--font-mono); font-size: 7.5px; fill: var(--terracotta); font-weight: 700;
+        }
+        .seq-diagram .block-box {
+            fill: var(--warm-dim); stroke: var(--warm); stroke-width: 1; rx: 2; opacity: 0.7;
+        }
+        .seq-diagram .block-label {
+            font-family: var(--font-mono); font-size: 7px; fill: var(--warm); font-weight: 600;
+        }
+        .seq-diagram .note-box {
+            fill: #fffbe6; stroke: var(--gold); stroke-width: 0.8; rx: 2;
+        }
+        .seq-diagram .note-label {
+            font-family: var(--font-body); font-size: 7px; fill: var(--charcoal);
+        }
+
+        /* ===========================================
+           ARCHITECTURE DIAGRAM
+           =========================================== */
+        .arch-diagram {
+            font-family: var(--font-mono); font-size: clamp(0.52rem, 0.85vw, 0.68rem);
+            color: var(--charcoal); line-height: 1.5; white-space: pre;
+            background: var(--cream-dark);
+            padding: clamp(0.6rem, 1.2vh, 1rem) clamp(0.8rem, 1.5vw, 1.2rem);
+            border-radius: 4px; border: 1px solid var(--rule); overflow: hidden;
+        }
+
+        /* ===========================================
+           BIG QUESTION
+           =========================================== */
+        .big-question {
+            font-family: var(--font-display); font-size: clamp(1.4rem, 3.5vw, 2.6rem);
+            font-weight: 700; line-height: 1.15; color: var(--charcoal); max-width: 700px;
+        }
+        .big-question em { font-weight: 400; font-style: italic; color: var(--warm); }
+
+        /* ===========================================
+           HIGHLIGHT
+           =========================================== */
+        .hl { background: var(--warm-dim); color: var(--warm); padding: 0.08em 0.4em; border-radius: 2px; font-weight: 600; }
+        .hl-dark { background: var(--charcoal); color: var(--cream); padding: 0.08em 0.45em; border-radius: 2px; font-weight: 700; }
+
+        /* ===========================================
+           TPS CHART (SVG-based stylized chart)
+           =========================================== */
+        .tps-chart {
+            width: 100%; max-width: min(85vw, 600px);
+            height: clamp(120px, 25vh, 220px);
+        }
+        .tps-chart .axis-label {
+            font-family: var(--font-mono); font-size: clamp(0.45rem, 0.7vw, 0.55rem);
+            fill: var(--text-muted);
+        }
+        .tps-chart .chart-line {
+            fill: none; stroke: var(--warm); stroke-width: 2.5;
+            stroke-linecap: round; stroke-linejoin: round;
+        }
+        .tps-chart .chart-area {
+            fill: var(--warm-dim);
+        }
+        .tps-chart .zone-label {
+            font-family: var(--font-body); font-size: clamp(0.42rem, 0.65vw, 0.52rem);
+            fill: var(--text-secondary); font-weight: 600;
+        }
+
+        /* ===========================================
+           FORMULA
+           =========================================== */
+        .formula-box {
+            background: var(--cream-dark); border: 1px solid var(--rule);
+            border-radius: 4px;
+            padding: clamp(0.8rem, 1.5vh, 1.2rem) clamp(1rem, 2vw, 1.5rem);
+            text-align: center;
+        }
+        .formula {
+            font-family: var(--font-mono); font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+            color: var(--charcoal); font-weight: 600;
+        }
+        .formula .accent { color: var(--warm); }
+
+        /* ===========================================
+           REVEAL ANIMATIONS
+           =========================================== */
+        .reveal {
+            opacity: 0; transform: translateY(16px);
+            transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease);
+        }
+        .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+        .slide.visible .reveal:nth-child(1) { transition-delay: 0.06s; }
+        .slide.visible .reveal:nth-child(2) { transition-delay: 0.14s; }
+        .slide.visible .reveal:nth-child(3) { transition-delay: 0.22s; }
+        .slide.visible .reveal:nth-child(4) { transition-delay: 0.30s; }
+        .slide.visible .reveal:nth-child(5) { transition-delay: 0.38s; }
+        .slide.visible .reveal:nth-child(6) { transition-delay: 0.46s; }
+        .slide.visible .reveal:nth-child(7) { transition-delay: 0.54s; }
+
+        /* ===========================================
+           PROGRESS BAR + NAV
+           =========================================== */
+        .progress-bar {
+            position: fixed; bottom: 0; left: 0; height: 2px;
+            background: var(--warm); z-index: 200; transition: width 0.35s ease; width: 0%;
+        }
+        .nav-dots {
+            position: fixed; right: clamp(0.6rem, 1.4vw, 1.2rem); top: 50%;
+            transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 200;
+        }
+        .nav-dot {
+            width: clamp(4px, 0.5vw, 6px); height: clamp(4px, 0.5vw, 6px);
+            border-radius: 50%; background: rgba(0, 0, 0, 0.12); cursor: pointer; transition: all 0.3s ease;
+        }
+        .nav-dot:hover { background: rgba(0, 0, 0, 0.25); }
+        .nav-dot.active { background: var(--warm); transform: scale(1.6); }
+        .slide-num {
+            position: absolute; bottom: clamp(0.6rem, 1.5vh, 1.2rem); right: clamp(1rem, 2.5vw, 2rem);
+            font-family: var(--font-mono); font-size: clamp(0.48rem, 0.75vw, 0.6rem); color: var(--text-muted); z-index: 3;
+        }
+        .keyboard-hint {
+            position: fixed; bottom: clamp(0.5rem, 1.2vh, 0.9rem); left: 50%; transform: translateX(-50%);
+            font-family: var(--font-mono); font-size: clamp(0.42rem, 0.65vw, 0.52rem);
+            color: var(--text-muted); opacity: 0.5; z-index: 200;
+        }
+        @media (max-height: 600px) { .nav-dots, .keyboard-hint, .slide-num { display: none; } }
+
+        /* ===========================================
+           MARGIN DEFINITION (right-edge glossary note)
+           =========================================== */
+        .margin-def {
+            position: absolute; right: clamp(0.6rem, 1.5vw, 1.2rem);
+            max-width: clamp(100px, 14vw, 160px);
+            padding: clamp(0.25rem, 0.5vh, 0.4rem) clamp(0.35rem, 0.7vw, 0.5rem);
+            background: var(--cream-dark); border-left: 2px solid var(--gold);
+            border-radius: 0 3px 3px 0;
+            font-family: var(--font-body); font-size: clamp(0.4rem, 0.65vw, 0.5rem);
+            color: var(--text-secondary); line-height: 1.4; z-index: 4;
+        }
+        .margin-def strong { color: var(--charcoal); font-weight: 700; display: block;
+            font-family: var(--font-mono); font-size: clamp(0.42rem, 0.7vw, 0.55rem);
+            margin-bottom: 0.15em;
+        }
+        .slide[style*="charcoal"] .margin-def,
+        .hour-divider .margin-def {
+            background: rgba(255,255,255,0.07); border-left-color: var(--gold);
+            color: rgba(255,255,255,0.55);
+        }
+        .slide[style*="charcoal"] .margin-def strong,
+        .hour-divider .margin-def strong {
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* ===========================================
+           HOUR DIVIDER
+           =========================================== */
+        .hour-divider {
+            background: var(--charcoal);
+        }
+    </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<nav class="nav-dots" id="navDots"></nav>
+<span class="keyboard-hint">&uarr; &darr; navigate</span>
+
+<!-- SVG arrow markers for sequence diagrams -->
+<svg style="position:absolute;width:0;height:0;">
+  <defs>
+    <marker id="seq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2b2926"/>
+    </marker>
+    <marker id="seq-arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c4513a"/>
+    </marker>
+    <marker id="seq-arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b8f71"/>
+    </marker>
+  </defs>
+</svg>
+
+<!-- ═══════════════════════════════════════════════════
+     NEW NARRATIVE: CRASH-FIRST, 29 SLIDES
+     ═══════════════════════════════════════════════════ -->
+
+<!-- ─── SLIDE 1 · TITLE ──────────────────────────── -->
+<section class="slide" id="slide-0">
+    <div class="geo-accent geo-circle" style="top:8%;right:12%;"></div>
+    <div class="geo-accent geo-dot" style="top:15%;right:10%;"></div>
+    <div class="geo-accent geo-line" style="bottom:25%;left:8%;width:clamp(40px,8vw,100px);"></div>
+    <div class="slide-content" style="max-width:min(90vw,900px);margin:0 auto;">
+        <div class="reveal label" style="margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Lesson 1 &middot; Real-Time Data Processing</div>
+        <h1 class="display-title reveal">How much can a<br>single OLTP node<br><em>handle?</em></h1>
+        <p class="subtitle reveal" style="margin-top:clamp(0.5rem,1.2vh,1rem);">PostgreSQL internals. Load generation. Bottleneck analysis. Finding the wall.</p>
+    </div>
+    <span class="slide-num">01 / 30</span>
+</section>
+
+<!-- ─── SLIDE 2 · WATCH IT DIE ───────────────────── -->
+<section class="slide" id="slide-1" style="background:var(--charcoal);">
+    <div class="margin-def reveal" style="top:18%;">
+        <strong>OOM</strong>
+        Out Of Memory — the Linux kernel kills a process when physical RAM is exhausted.
+    </div>
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; demo_oom.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(2rem,5.5vw,4rem);">Watch it <em style="color:var(--terracotta);">die.</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+            <div class="code-body"><span class="v">$</span> uv run python demos/demo_oom.py
+<span class="c"># Opens 500 connections</span>
+<span class="c"># Each backend allocates ~50 MB</span>
+<span class="c"># Container: 4 GB RAM limit</span>
+<span class="c"># ...</span>
+<span class="s">OOM killed. Container is dead.</span></div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.8rem,1.5vh,1.2rem);">500 connections &times; 50 MB = 25 GB. The container had 4.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">02 / 30</span>
+</section>
+
+<!-- ─── SLIDE 3 · AUTOPSY ────────────────────────── -->
+<section class="slide" id="slide-2">
+    <div class="geo-accent geo-circle" style="bottom:12%;left:8%;opacity:0.5;"></div>
+    <div class="slide-content" style="max-width:min(90vw,800px);margin:0 auto;">
+        <div class="reveal label" style="margin-bottom:clamp(0.8rem,2vh,1.5rem);">Autopsy</div>
+        <h2 class="reveal">What just <em>happened?</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <li>We opened <strong>500 connections</strong> to a Postgres container</li>
+            <li>Each connection is a <strong>separate OS process</strong> (a &ldquo;backend&rdquo;)</li>
+            <li>Each backend allocated ~50 MB of private memory</li>
+            <li>Total: ~25 GB demanded. Container limit: 4 GB.</li>
+            <li>Linux OOM killer chose Postgres. <strong>Everything gone.</strong></li>
+        </ul>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">No graceful shutdown. No WAL (Write-Ahead Log) flush. In-flight work is <strong>lost</strong>. This happens in production.</span>
+        </div>
+    </div>
+    <span class="slide-num">03 / 30</span>
+</section>
+
+<!-- ─── SLIDE 4 · WHAT IS A CONNECTION? ──────────── -->
+<section class="slide" id="slide-3">
+    <div class="geo-accent geo-dot" style="top:20%;right:15%;"></div>
+    <div class="margin-def reveal" style="top:30%;">
+        <strong>RSS</strong>
+        Resident Set Size — physical RAM a process actually occupies right now.
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--dusty-blue);border-color:var(--dusty-blue);">Investigation</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">What IS a <em>connection?</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>Postmaster <strong>forks a new process</strong> for every client</li>
+            <li>Each backend: ~5&ndash;10 MB RSS (Resident Set Size) at idle, more under load</li>
+            <li><code>work_mem</code>, temp buffers, sort buffers &mdash; all per-backend</li>
+            <li>500 connections = <strong>gigabytes</strong> just in process overhead</li>
+            <li>Context switching kills throughput beyond the sweet spot</li>
+        </ul>
+        <div class="formula-box reveal" style="margin-top:clamp(0.8rem,1.5vh,1.2rem);">
+            <div class="formula">max_useful_concurrency &asymp; (<span class="accent">CPU cores &times; 2</span>) + effective_spindle_count</div>
+        </div>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <span class="callout-icon">&#128161;</span>
+            <span class="callout-text">This is why <code>pgbouncer</code> exists. Connection pooling isn't optional at scale.</span>
+        </div>
+    </div>
+    <span class="slide-num">04 / 30</span>
+</section>
+
+<!-- ─── SLIDE 5 · SEE THE BACKENDS ───────────────── -->
+<section class="slide" id="slide-4" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; demo_connections.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">See the <em style="color:var(--warm);">backends</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">psql</span></div>
+            <div class="code-body"><span class="k">SELECT</span> pid, state, wait_event_type,
+       left(query, <span class="g">50</span>) <span class="k">AS</span> query
+  <span class="k">FROM</span> pg_stat_activity
+ <span class="k">WHERE</span> backend_type = <span class="s">'client backend'</span>;</div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Open 50 connections. Some idle, some active. Each one is a process.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">05 / 30</span>
+</section>
+
+<!-- ─── SLIDE 6 · THE WRITE PATH ─────────────────── -->
+<section class="slide" id="slide-5">
+    <div class="margin-def reveal" style="top:22%;">
+        <strong>WAL</strong>
+        Write-Ahead Log — every change is logged before it hits the data files. Crash recovery replays the WAL.
+    </div>
+    <div class="margin-def reveal" style="top:52%;">
+        <strong>Buffer pool</strong>
+        PostgreSQL's in-memory cache of 8 KB data pages (configured via <code style="font-size:inherit;">shared_buffers</code>).
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,1000px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">The Write Path</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">One INSERT, <em>traced end-to-end</em></h2>
+        <svg class="seq-diagram reveal" viewBox="0 0 520 200" preserveAspectRatio="xMidYMid meet" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <!-- Actors -->
+            <rect class="actor-box" x="30" y="2" width="60" height="20"/>
+            <text class="actor-label" x="60" y="16">Client</text>
+            <rect class="actor-box" x="145" y="2" width="70" height="20"/>
+            <text class="actor-label" x="180" y="16">Backend</text>
+            <rect class="actor-box" x="270" y="2" width="60" height="20"/>
+            <text class="actor-label" x="300" y="16">Heap</text>
+            <rect class="actor-box" x="380" y="2" width="50" height="20"/>
+            <text class="actor-label" x="405" y="16">WAL</text>
+            <rect class="actor-box" x="455" y="2" width="50" height="20"/>
+            <text class="actor-label" x="480" y="16">Disk</text>
+            <!-- Lifelines -->
+            <line class="lifeline" x1="60" y1="22" x2="60" y2="195"/>
+            <line class="lifeline" x1="180" y1="22" x2="180" y2="195"/>
+            <line class="lifeline" x1="300" y1="22" x2="300" y2="195"/>
+            <line class="lifeline" x1="405" y1="22" x2="405" y2="195"/>
+            <line class="lifeline" x1="480" y1="22" x2="480" y2="195"/>
+            <!-- Messages -->
+            <line class="msg-line" x1="60" y1="42" x2="177" y2="42"/>
+            <text class="msg-label" x="88" y="38">INSERT INTO orders</text>
+            <line class="msg-line" x1="180" y1="62" x2="297" y2="62"/>
+            <text class="msg-label" x="200" y="58">write tuple → page</text>
+            <line class="msg-line" x1="180" y1="82" x2="402" y2="82"/>
+            <text class="msg-label" x="240" y="78">append WAL record</text>
+            <line class="msg-line" x1="180" y1="102" x2="297" y2="102"/>
+            <text class="msg-label" x="210" y="98">mark page dirty</text>
+            <!-- fsync block — the bottleneck -->
+            <rect class="block-box" x="395" y="115" width="95" height="35"/>
+            <text class="block-label" x="415" y="136">fsync()</text>
+            <line class="msg-line-red" x1="405" y1="118" x2="477" y2="118"/>
+            <text class="msg-label-bold" x="420" y="114">COMMIT flush</text>
+            <line class="msg-line-green" x1="477" y1="140" x2="408" y2="140"/>
+            <text class="msg-label" x="425" y="155" style="fill:var(--sage);">durable ✓</text>
+            <!-- ACK back -->
+            <line class="msg-line-green" x1="180" y1="170" x2="63" y2="170"/>
+            <text class="msg-label" x="95" y="166" style="fill:var(--sage);">ACK → client</text>
+        </svg>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">&#128161;</span>
+            <span class="callout-text">Five bottleneck points: <code>connections</code>, <code>WAL fsync</code>, <code>shared_buffers</code>, <code>MVCC/vacuum</code>, <code>locks</code>. We'll hit each one today.</span>
+        </div>
+    </div>
+    <span class="slide-num">06 / 30</span>
+</section>
+
+<!-- ─── SLIDE 7 · THE FSYNC WALL ─────────────────── -->
+<section class="slide" id="slide-6">
+    <div class="geo-accent geo-circle" style="top:10%;right:8%;width:clamp(40px,8vw,100px);height:clamp(40px,8vw,100px);border-color:var(--gold);opacity:0.2;"></div>
+    <div class="margin-def reveal" style="top:25%;">
+        <strong>fsync</strong>
+        System call that forces buffered writes to durable storage. Returns only when bits are on disk.
+    </div>
+    <div class="margin-def reveal" style="top:55%;">
+        <strong>IOPS</strong>
+        I/O Operations Per Second — the throughput limit of your storage device.
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--gold);border-color:var(--gold);">Bottleneck 1</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">The <em>fsync</em> wall</h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>Every COMMIT requires a WAL flush to <strong>durable storage</strong></li>
+            <li><code>fsync()</code> = &ldquo;don't return until bits are on the platter&rdquo;</li>
+            <li>NVMe SSD: ~100k IOPS &rarr; ceiling of ~100k synchronous commits/sec</li>
+            <li>One connection, one INSERT at a time &rarr; one fsync per commit</li>
+        </ul>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">This is typically the <strong>first</strong> bottleneck you'll hit. The disk becomes the serialization point.</span>
+        </div>
+    </div>
+    <span class="slide-num">07 / 30</span>
+</section>
+
+<!-- ─── SLIDE 8 · DEMO: NAIVE LOADER ─────────────── -->
+<section class="slide" id="slide-7" style="background:var(--charcoal);">
+    <div class="margin-def reveal" style="top:20%;">
+        <strong>TPS</strong>
+        Transactions Per Second — the primary throughput metric for OLTP workloads.
+    </div>
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; load_naive.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Naive: one connection, <em style="color:var(--gold);">synchronous</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">load_naive.py</span></div>
+            <div class="code-body"><span class="v">conn</span> = psycopg.<span class="fn">connect</span>(DSN, autocommit=<span class="g">True</span>)
+<span class="k">for</span> _ <span class="k">in</span> <span class="fn">range</span>(<span class="g">100_000</span>):
+    cur.<span class="fn">execute</span>(<span class="s">"INSERT INTO orders ..."</span>)
+    <span class="c"># each INSERT → COMMIT → fsync → ACK (acknowledge)</span></div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Expected: <strong style="color:var(--warm);">~1,800 TPS</strong> (p99 &asymp; 1ms). The fsync wall in action.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">08 / 30</span>
+</section>
+
+<!-- ─── SLIDE 9 · GROUP COMMIT ────────────────────── -->
+<section class="slide" id="slide-8">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--gold);border-color:var(--gold);">Bottleneck 1 &middot; workaround</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Group commit: <em>concurrency helps</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>Multiple backends committing &rarr; Postgres batches their WAL flushes</li>
+            <li>One fsync serves several commits &rarr; <strong>amortized cost</strong></li>
+            <li>10 connections: ~5&times; improvement. 50: ~8&times;.</li>
+            <li>Diminishing returns as contention on WAL lock grows</li>
+        </ul>
+        <svg class="seq-diagram reveal" viewBox="0 0 440 145" preserveAspectRatio="xMidYMid meet" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <!-- Actors -->
+            <rect class="actor-box" x="10" y="2" width="65" height="18"/>
+            <text class="actor-label" x="42" y="14">Client A</text>
+            <rect class="actor-box" x="10" y="72" width="65" height="18"/>
+            <text class="actor-label" x="42" y="84">Client B</text>
+            <rect class="actor-box" x="150" y="37" width="60" height="18"/>
+            <text class="actor-label" x="180" y="49">WAL</text>
+            <rect class="actor-box" x="310" y="37" width="55" height="18"/>
+            <text class="actor-label" x="337" y="49">Disk</text>
+            <!-- Lifelines -->
+            <line class="lifeline" x1="42" y1="20" x2="42" y2="35"/>
+            <line class="lifeline" x1="42" y1="90" x2="42" y2="105"/>
+            <line class="lifeline" x1="180" y1="55" x2="180" y2="135"/>
+            <line class="lifeline" x1="337" y1="55" x2="337" y2="135"/>
+            <!-- Both clients send COMMIT to WAL -->
+            <line class="msg-line" x1="75" y1="28" x2="177" y2="62"/>
+            <text class="msg-label" x="88" y="36">COMMIT</text>
+            <line class="msg-line" x1="75" y1="98" x2="177" y2="72"/>
+            <text class="msg-label" x="88" y="108">COMMIT</text>
+            <!-- Single batched fsync -->
+            <rect class="block-box" x="170" y="78" width="180" height="28"/>
+            <text class="block-label" x="210" y="96">1 fsync for both</text>
+            <line class="msg-line-red" x1="180" y1="85" x2="334" y2="85"/>
+            <!-- ACK back to both -->
+            <line class="msg-line-green" x1="180" y1="120" x2="50" y2="120"/>
+            <text class="msg-label" x="85" y="130" style="fill:var(--sage);">ACK A + ACK B</text>
+        </svg>
+        <svg class="tps-chart reveal" viewBox="0 0 300 130" preserveAspectRatio="xMidYMid meet" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <text class="axis-label" x="0" y="125">N=1</text>
+            <text class="axis-label" x="55" y="125">10</text>
+            <text class="axis-label" x="120" y="125">50</text>
+            <text class="axis-label" x="200" y="125">200</text>
+            <text class="axis-label" x="260" y="125">500</text>
+            <text class="axis-label" x="0" y="10">TPS</text>
+            <path class="chart-area" d="M 10 108 Q 50 85, 80 45 Q 120 18, 170 22 Q 230 35, 285 58 L 285 108 Z" opacity="0.3"/>
+            <path class="chart-line" d="M 10 108 Q 50 85, 80 45 Q 120 18, 170 22 Q 230 35, 285 58"/>
+            <text class="zone-label" x="35" y="80">climb</text>
+            <text class="zone-label" x="115" y="12">sweet spot</text>
+            <text class="zone-label" x="230" y="50">degrade</text>
+        </svg>
+    </div>
+    <span class="slide-num">09 / 30</span>
+</section>
+
+<!-- ─── SLIDE 10 · DEMO: ASYNC LOADER ────────────── -->
+<section class="slide" id="slide-9" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; load_async.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Async with <em style="color:var(--warm);">N connections</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+            <div class="code-body"><span class="c"># 10 connections</span>
+<span class="v">$</span> uv run python load_async.py -c <span class="g">10</span>  <span class="c"># ~6.8k TPS  (p99 &asymp; 3ms)</span>
+
+<span class="c"># 50 connections</span>
+<span class="v">$</span> uv run python load_async.py -c <span class="g">50</span>  <span class="c"># ~11k TPS   (p99 &asymp; 9ms)</span></div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Group commit kicks in. Same disk, but fewer fsyncs per transaction.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">10 / 30</span>
+</section>
+
+<!-- ─── SLIDE 11 · TRANSITION: FASTER? ────────── -->
+<section class="slide hour-divider" id="slide-trans-1" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">~1.8k &rarr; ~11k TPS</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Can we go faster &mdash;<br><em style="color:var(--gold);">without losing data?</em></h2>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">Group commit helped. But fsync is still the bottleneck.<br>Two options: skip it, or batch around it.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">11 / 30</span>
+</section>
+
+<!-- ─── SLIDE 12 · SYNCHRONOUS_COMMIT OFF ──────────── -->
+<section class="slide" id="slide-10">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--gold);border-color:var(--gold);">Bottleneck 1 &middot; nuclear option</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Removing the <em>fsync brake</em></h2>
+        <svg class="seq-diagram reveal" viewBox="0 0 490 142" preserveAspectRatio="xMidYMid meet" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <!-- sync ON (left) -->
+            <text font-family="var(--font-mono)" font-size="7.5" fill="var(--terracotta)" x="107" y="10" text-anchor="middle">sync ON — client waits</text>
+            <rect class="actor-box" x="10" y="14" width="48" height="17"/>
+            <text class="actor-label" x="34" y="25">Client</text>
+            <rect class="actor-box" x="90" y="14" width="40" height="17"/>
+            <text class="actor-label" x="110" y="25">WAL</text>
+            <rect class="actor-box" x="178" y="14" width="40" height="17"/>
+            <text class="actor-label" x="198" y="25">Disk</text>
+            <line class="lifeline" x1="34" y1="31" x2="34" y2="136"/>
+            <line class="lifeline" x1="110" y1="31" x2="110" y2="136"/>
+            <line class="lifeline" x1="198" y1="31" x2="198" y2="136"/>
+            <line class="msg-line" x1="34" y1="44" x2="107" y2="44"/>
+            <text class="msg-label" x="50" y="40">COMMIT</text>
+            <rect class="block-box" x="101" y="53" width="104" height="36" style="fill:rgba(196,85,61,0.1);stroke:var(--terracotta);"/>
+            <text font-family="var(--font-mono)" font-size="6.5" fill="var(--terracotta)" x="153" y="68" text-anchor="middle">fsync() — blocking</text>
+            <line class="msg-line-red" x1="110" y1="62" x2="195" y2="62"/>
+            <line class="msg-line-green" x1="195" y1="76" x2="113" y2="76"/>
+            <line style="stroke:var(--terracotta);stroke-width:1;stroke-dasharray:2 2;" x1="34" y1="44" x2="34" y2="93"/>
+            <text font-family="var(--font-mono)" font-size="5.5" fill="var(--terracotta)" x="22" y="68" text-anchor="middle">waiting</text>
+            <line class="msg-line-green" x1="110" y1="93" x2="37" y2="93"/>
+            <text class="msg-label" x="52" y="89" style="fill:var(--sage);">ACK</text>
+            <!-- divider -->
+            <line x1="243" y1="4" x2="243" y2="140" stroke="var(--rule)" stroke-width="0.8" stroke-dasharray="3 3"/>
+            <!-- sync OFF (right) -->
+            <text font-family="var(--font-mono)" font-size="7.5" fill="var(--sage)" x="375" y="10" text-anchor="middle">sync OFF — async flush</text>
+            <rect class="actor-box" x="255" y="14" width="48" height="17"/>
+            <text class="actor-label" x="279" y="25">Client</text>
+            <rect class="actor-box" x="335" y="14" width="40" height="17"/>
+            <text class="actor-label" x="355" y="25">WAL</text>
+            <rect class="actor-box" x="420" y="14" width="52" height="17"/>
+            <text class="actor-label" x="446" y="25">Disk</text>
+            <line class="lifeline" x1="279" y1="31" x2="279" y2="136"/>
+            <line class="lifeline" x1="355" y1="31" x2="355" y2="136"/>
+            <line class="lifeline" x1="446" y1="31" x2="446" y2="136"/>
+            <line class="msg-line" x1="279" y1="44" x2="352" y2="44"/>
+            <text class="msg-label" x="295" y="40">COMMIT</text>
+            <line class="msg-line-green" x1="355" y1="54" x2="282" y2="54"/>
+            <text class="msg-label" x="290" y="50" style="fill:var(--sage);font-weight:700;">ACK immediately</text>
+            <rect rx="2" x="346" y="62" width="125" height="54" style="fill:rgba(198,93,42,0.09);stroke:var(--warm);stroke-width:0.8;"/>
+            <text font-family="var(--font-mono)" font-size="6" fill="var(--warm)" x="350" y="74">&le; 200ms window</text>
+            <line style="stroke:var(--warm);stroke-width:1.4;stroke-dasharray:3 2;" x1="355" y1="86" x2="418" y2="86"/>
+            <text class="msg-label" x="358" y="82" style="font-size:6px;">background flush</text>
+            <text font-family="var(--font-mono)" font-size="6" font-weight="700" fill="var(--terracotta)" x="350" y="103">crash here =</text>
+            <text font-family="var(--font-mono)" font-size="6" fill="var(--text-muted)" x="350" y="113">ACK'd txns lost</text>
+        </svg>
+        <div class="two-col reveal" style="margin-top:clamp(0.3rem,0.6vh,0.4rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">What you gain</span>
+                <ul class="bullets">
+                    <li>COMMIT returns <strong>immediately</strong></li>
+                    <li>WAL still written, just not fsynced per commit</li>
+                    <li>Background writer flushes in batches</li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--terracotta);">What you lose</span>
+                <ul class="bullets">
+                    <li>On crash: lose up to 200ms of committed data</li>
+                    <li>At 50k TPS &times; 200ms = <strong class="hl">10,000 txns</strong> gone</li>
+                    <li>Not corruption &mdash; just acknowledged-but-lost commits</li>
+                </ul>
+            </div>
+        </div>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">Don't believe it? <code>demo_sync_loss.py</code> inserts rows, crashes the container, and counts what's missing. Real proof.</span>
+        </div>
+    </div>
+    <span class="slide-num">12 / 30</span>
+</section>
+
+<!-- ─── SLIDE 13 · DEMO: NO-SYNC ─────────────────── -->
+<section class="slide" id="slide-11" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; load_async.py --no-sync</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.4rem,3vw,2.2rem);"><code style="font-family:var(--font-mono);color:var(--gold);">synchronous_commit = off</code></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+            <div class="code-body"><span class="v">$</span> uv run python load_async.py -c <span class="g">50</span> --no-sync
+
+<span class="c"># Expected: ~14k TPS  (p99 &asymp; 12ms)</span>
+<span class="c"># Compare: 11k with sync on (p99 &asymp; 9ms)</span></div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">The fsync brake is off. Faster &mdash; but at a price.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">13 / 30</span>
+</section>
+
+<!-- ─── SLIDE 14 · BATCHING: COPY PROTOCOL ───────── -->
+<section class="slide" id="slide-12">
+    <div class="margin-def reveal" style="top:20%;">
+        <strong>COPY</strong>
+        PostgreSQL’s bulk-load protocol. Streams rows in binary, bypassing per-row overhead.
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Bottleneck 1 &middot; eliminated</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Batching: the <em>COPY protocol</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>Instead of 1,000 round-trips &rarr; <strong>one bulk transfer</strong></li>
+            <li><code>COPY</code> streams rows in binary, one WAL flush per batch</li>
+            <li>Fewer fsyncs, fewer context switches, fewer network round-trips</li>
+            <li><code>executemany</code>: pipelined INSERTs. Good. <code>COPY</code>: binary stream. <strong>Great.</strong></li>
+        </ul>
+        <svg class="seq-diagram reveal" viewBox="0 0 520 155" preserveAspectRatio="xMidYMid meet" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <!-- Left side: naive INSERT loop -->
+            <text class="actor-label" x="75" y="10" style="font-size:8px;fill:var(--terracotta);">Naive: N round-trips</text>
+            <rect class="actor-box" x="10" y="16" width="50" height="16"/>
+            <text class="actor-label" x="35" y="27" style="font-size:7px;">Client</text>
+            <rect class="actor-box" x="110" y="16" width="50" height="16"/>
+            <text class="actor-label" x="135" y="27" style="font-size:7px;">PG</text>
+            <line class="lifeline" x1="35" y1="32" x2="35" y2="145"/>
+            <line class="lifeline" x1="135" y1="32" x2="135" y2="145"/>
+            <line class="msg-line" x1="35" y1="44" x2="132" y2="44"/>
+            <text class="msg-label" x="55" y="40" style="font-size:6px;">INSERT #1</text>
+            <line class="msg-line-red" x1="135" y1="54" x2="135" y2="54"/>
+            <text class="msg-label-bold" x="140" y="54" style="font-size:6px;">fsync</text>
+            <line class="msg-line-green" x1="132" y1="60" x2="38" y2="60"/>
+            <text class="msg-label" x="65" y="68" style="font-size:6px;fill:var(--sage);">ACK</text>
+            <line class="msg-line" x1="35" y1="78" x2="132" y2="78"/>
+            <text class="msg-label" x="55" y="74" style="font-size:6px;">INSERT #2</text>
+            <line class="msg-line-red" x1="135" y1="88" x2="135" y2="88"/>
+            <text class="msg-label-bold" x="140" y="88" style="font-size:6px;">fsync</text>
+            <line class="msg-line-green" x1="132" y1="94" x2="38" y2="94"/>
+            <text class="msg-label" x="65" y="102" style="font-size:6px;fill:var(--sage);">ACK</text>
+            <text class="msg-label" x="55" y="120" style="font-size:7px;">… × 1,000</text>
+            <text class="msg-label-bold" x="35" y="140" style="font-size:7px;">1,000 fsyncs</text>
+            <!-- Divider -->
+            <line x1="195" y1="10" x2="195" y2="150" stroke="var(--rule)" stroke-width="0.8" stroke-dasharray="3 3"/>
+            <!-- Right side: COPY -->
+            <text class="actor-label" x="360" y="10" style="font-size:8px;fill:var(--sage);">COPY: 1 round-trip</text>
+            <rect class="actor-box" x="270" y="16" width="50" height="16"/>
+            <text class="actor-label" x="295" y="27" style="font-size:7px;">Client</text>
+            <rect class="actor-box" x="400" y="16" width="50" height="16"/>
+            <text class="actor-label" x="425" y="27" style="font-size:7px;">PG</text>
+            <line class="lifeline" x1="295" y1="32" x2="295" y2="145"/>
+            <line class="lifeline" x1="425" y1="32" x2="425" y2="145"/>
+            <!-- Stream block -->
+            <rect style="fill:var(--sage);opacity:0.15;rx:2;" x="288" y="38" width="144" height="55"/>
+            <line class="msg-line" x1="295" y1="48" x2="422" y2="48"/>
+            <text class="msg-label" x="320" y="44" style="font-size:6px;">COPY stream (1,000 rows)</text>
+            <line class="msg-line" x1="295" y1="60" x2="422" y2="60"/>
+            <line class="msg-line" x1="295" y1="70" x2="422" y2="70"/>
+            <line class="msg-line" x1="295" y1="80" x2="422" y2="80"/>
+            <text class="msg-label" x="340" y="78" style="font-size:6px;">… binary</text>
+            <!-- Single fsync -->
+            <rect class="block-box" x="415" y="98" width="80" height="20"/>
+            <text class="block-label" x="425" y="112" style="font-size:6.5px;">1 fsync</text>
+            <line class="msg-line-green" x1="422" y1="128" x2="298" y2="128"/>
+            <text class="msg-label" x="330" y="140" style="font-size:7px;fill:var(--sage);font-weight:700;">1 ACK, 1 fsync</text>
+        </svg>
+        <div class="callout callout-win reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+            <span class="callout-text">Batching is <strong>free</strong> &mdash; no durability trade-off. Just fewer operations per commit.</span>
+        </div>
+    </div>
+    <span class="slide-num">14 / 30</span>
+</section>
+
+<!-- ─── SLIDE 15 · DEMO: COPY ─────────────────────── -->
+<section class="slide" id="slide-13" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; experiment_batch.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">COPY: <em style="color:var(--sage);">orders of magnitude</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+            <div class="code-body"><span class="v">$</span> uv run python experiment_batch.py
+<span class="c"># single connection throughout</span>
+
+<span class="c"># executemany  &rarr; ~30k TPS</span>
+<span class="c"># COPY         &rarr; ~93k TPS  (p99 &asymp; 0.01ms)</span>
+<span class="c"># vs naive     &rarr; 52&times; improvement</span></div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">One connection &mdash; no parallelism, no tricks. 53&times; faster than naive. Just fewer fsyncs.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">15 / 30</span>
+</section>
+
+<!-- ─── SLIDE 16 · DEMO: PARALLEL COPY ──────────── -->
+<section class="slide" id="slide-13b" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; experiment_parallel_copy.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Parallel COPY: <em style="color:var(--warm);">not linear</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+            <div class="code-body"><span class="v">$</span> uv run python experiment_parallel_copy.py -c <span class="g">1</span>  <span class="c">#   93k TPS   1.0&times;</span>
+<span class="v">$</span> uv run python experiment_parallel_copy.py -c <span class="g">4</span>  <span class="c">#  227k TPS   2.4&times;</span>
+<span class="v">$</span> uv run python experiment_parallel_copy.py -c <span class="g">8</span>  <span class="c">#  350k+ TPS  3.8&times;</span>
+<span class="c"># disjoint rows &mdash; no contention</span></div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Real scaling &mdash; but sublinear. The WAL insert lock is still a serial fraction. Amdahl&rsquo;s Law applies even here.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">16 / 30</span>
+</section>
+
+<!-- ─── SLIDE 17 · TRANSITION: WHAT BREAKS NEXT? ── -->
+<section class="slide hour-divider" id="slide-trans-2" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">~1.8k &rarr; ~93k TPS</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Fsync: <em style="color:var(--sage);">solved.</em><br>What breaks next?</h2>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">Parallel COPY scales &mdash; but the WAL lock caps it at ~3&times; for 8 workers. Now meet a bottleneck where the serial fraction is <em style="color:var(--warm);">100%</em>.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">17 / 30</span>
+</section>
+
+<!-- ─── SLIDE 17 · AMDAHL'S LAW ──────────────────── -->
+<section class="slide" id="slide-14">
+    <div class="geo-accent geo-circle" style="bottom:15%;right:10%;width:clamp(50px,10vw,130px);height:clamp(50px,10vw,130px);border-color:rgba(0,0,0,0.04);"></div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Theory</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Amdahl's Law <em>applied</em></h2>
+        <div class="formula-box reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <div class="formula">Speedup = 1 / ( <span class="accent">S</span> + (1 &minus; <span class="accent">S</span>) / N )</div>
+        </div>
+        <p class="subtitle reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);max-width:700px;"><strong>S</strong> = serial fraction. <strong>N</strong> = parallel workers. Plain English: any work that can only happen one-at-a-time sets a hard ceiling on total speedup &mdash; adding more connections can&rsquo;t move that wall.</p>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>WAL fsync is serial &mdash; one disk, one flush queue</li>
+            <li>Lock waits are serial &mdash; only one txn holds the row</li>
+            <li>Even with infinite connections, speedup is bounded by <strong>1/S</strong></li>
+            <li>If 5% of your workload is serial, max speedup = <strong>20&times;</strong></li>
+        </ul>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">&#128161;</span>
+            <span class="callout-text">This explains why connections past the sweet spot <strong>degrade</strong> performance. More overhead, same serial fraction.</span>
+        </div>
+    </div>
+    <span class="slide-num">18 / 30</span>
+</section>
+
+<!-- ─── SLIDE 18 · HOT ROW THEORY ────────────────── -->
+<section class="slide" id="slide-15">
+    <div class="geo-accent geo-dot" style="top:18%;right:14%;"></div>
+    <div class="geo-accent geo-vline" style="right:16%;top:20%;height:clamp(30px,6vh,60px);"></div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--terracotta);border-color:var(--terracotta);">Bottleneck 2</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">The hot row <em>collapse</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>Many transactions UPDATE the same row (inventory, balance)</li>
+            <li>Postgres uses a <strong>wait queue</strong> &mdash; serialized access</li>
+            <li>Beyond a threshold: more time waiting than working</li>
+            <li>No amount of hardware fixes contention</li>
+        </ul>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL</span></div>
+            <div class="code-body"><span class="c">-- 50 backends, all hitting the same row</span>
+<span class="k">UPDATE</span> orders <span class="k">SET</span> amount = amount + <span class="g">1</span> <span class="k">WHERE</span> id = <span class="g">1</span>;</div>
+        </div>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">Solutions are <strong>architectural</strong>: optimistic locking, sharding the hot row, queuing updates. You can't buy your way out.</span>
+        </div>
+    </div>
+    <span class="slide-num">19 / 30</span>
+</section>
+
+<!-- ─── SLIDE 19 · DEMO: HOT ROW + LOCK WAITS ───── -->
+<section class="slide" id="slide-16" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; experiment_hotrow.py + demo_locks.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Hot row: <em style="color:var(--terracotta);">~2,500 TPS</em> <span style="font-size:0.5em;color:rgba(255,255,255,0.4);">(p99 &asymp; 92ms)</span></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:520px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">psql — spot the waits</span></div>
+            <div class="code-body"><span class="k">SELECT</span> pid, wait_event_type, wait_event,
+       state, left(query, <span class="g">40</span>) <span class="k">AS</span> query
+  <span class="k">FROM</span> pg_stat_activity
+ <span class="k">WHERE</span> wait_event_type = <span class="s">'Lock'</span>;</div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">50 connections, worse TPS than 1 connection with COPY. Contention dominates.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">20 / 30</span>
+</section>
+
+<!-- ─── SLIDE 20 · TRANSITION: HIDDEN COSTS ─────── -->
+<section class="slide hour-divider" id="slide-trans-3" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Beyond throughput</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">The <em style="color:var(--plum);">hidden costs</em></h2>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">TPS looks fine. But where is your RAM going?<br>And what is MVCC quietly doing to your table?</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">21 / 30</span>
+</section>
+
+<!-- ─── SLIDE 21 · SHARED BUFFERS ──────────────────── -->
+<section class="slide" id="slide-17">
+    <div class="geo-accent geo-dot" style="bottom:25%;right:12%;"></div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--plum);border-color:var(--plum);">Bottleneck 3</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Shared buffers &amp; the <em>double-buffering</em> problem</h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>Postgres manages its own buffer pool (<code>shared_buffers</code>)</li>
+            <li>OS also caches the same pages in the page cache</li>
+            <li>Too large <code>shared_buffers</code> = caching pages twice</li>
+            <li>Rule of thumb: <strong>25% of RAM</strong> &mdash; because of this</li>
+        </ul>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">For write-heavy workloads: if checkpoint I/O spikes, your write latency spikes. The checkpointer writes dirty pages from <code>shared_buffers</code> to disk.</span>
+        </div>
+    </div>
+    <span class="slide-num">22 / 30</span>
+</section>
+
+<!-- ─── SLIDE 22 · DEMO: BUFFER POOL ─────────────── -->
+<section class="slide" id="slide-18" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; demo_buffers.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Inside the <em style="color:var(--plum);">buffer pool</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:550px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">psql</span></div>
+            <div class="code-body"><span class="k">  SELECT</span> c.relname, count(*) <span class="k">AS</span> buffers,
+         pg_size_pretty(count(*) * <span class="g">8192</span>) <span class="k">AS</span> size
+<span class="k">    FROM</span> pg_buffercache b
+<span class="k">    JOIN</span> pg_class c <span class="k">ON</span> b.relfilenode = c.relfilenode
+<span class="k">GROUP BY</span> c.relname
+<span class="k">ORDER BY</span> <span class="g">2</span> <span class="k">DESC</span>
+<span class="k">   LIMIT</span> <span class="g">10</span>;</div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.6rem,1.2vh,0.9rem);">See which tables and indexes occupy the most 8 KB pages.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">23 / 30</span>
+</section>
+
+<!-- ─── SLIDE 23 · MVCC & DEAD TUPLES ────────────── -->
+<section class="slide" id="slide-19">
+    <div class="geo-accent geo-circle" style="top:12%;left:8%;width:clamp(60px,10vw,120px);height:clamp(60px,10vw,120px);border-color:rgba(0,0,0,0.04);"></div>
+    <div class="margin-def reveal" style="top:20%;">
+        <strong>MVCC</strong>
+        Multi-Version Concurrency Control — readers never block writers. Each row version has xmin/xmax transaction IDs.
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Bottleneck 4</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">MVCC &amp; <em>dead tuples</em></h2>
+        <svg class="seq-diagram reveal" viewBox="0 0 480 180" preserveAspectRatio="xMidYMid meet" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <!-- Actors -->
+            <rect class="actor-box" x="15" y="2" width="60" height="18"/>
+            <text class="actor-label" x="45" y="14" style="font-size:8px;">Txn 105</text>
+            <rect class="actor-box" x="130" y="2" width="70" height="18"/>
+            <text class="actor-label" x="165" y="14" style="font-size:8px;">Heap Page</text>
+            <rect class="actor-box" x="270" y="2" width="60" height="18"/>
+            <text class="actor-label" x="300" y="14" style="font-size:8px;">WAL</text>
+            <rect class="actor-box" x="395" y="2" width="65" height="18"/>
+            <text class="actor-label" x="427" y="14" style="font-size:8px;">Vacuum</text>
+            <!-- Lifelines -->
+            <line class="lifeline" x1="45" y1="20" x2="45" y2="175"/>
+            <line class="lifeline" x1="165" y1="20" x2="165" y2="175"/>
+            <line class="lifeline" x1="300" y1="20" x2="300" y2="175"/>
+            <line class="lifeline" x1="427" y1="20" x2="427" y2="175"/>
+            <!-- UPDATE creates new tuple -->
+            <line class="msg-line" x1="45" y1="36" x2="162" y2="36"/>
+            <text class="msg-label" x="58" y="32">UPDATE id=42</text>
+            <!-- Old tuple marked dead -->
+            <rect style="fill:var(--terracotta);opacity:0.12;rx:2;" x="120" y="42" width="90" height="28"/>
+            <text class="msg-label" x="128" y="54" style="font-size:7px;">Old tuple:</text>
+            <text class="msg-label-bold" x="128" y="64" style="font-size:7px;">xmax = 105 → DEAD</text>
+            <!-- New tuple written -->
+            <rect style="fill:var(--sage);opacity:0.15;rx:2;" x="120" y="74" width="90" height="28"/>
+            <text class="msg-label" x="128" y="86" style="font-size:7px;">New tuple:</text>
+            <text class="msg-label" x="128" y="96" style="font-size:7px;fill:var(--sage);font-weight:700;">xmin = 105 → LIVE</text>
+            <!-- WAL record -->
+            <line class="msg-line" x1="165" y1="108" x2="297" y2="108"/>
+            <text class="msg-label" x="195" y="104">WAL: UPDATE record</text>
+            <!-- COMMIT -->
+            <line class="msg-line-green" x1="165" y1="124" x2="48" y2="124"/>
+            <text class="msg-label" x="72" y="120" style="fill:var(--sage);">COMMIT → ACK</text>
+            <!-- Later: vacuum -->
+            <line style="stroke:var(--rule);stroke-width:0.6;stroke-dasharray:2 2;" x1="0" y1="140" x2="480" y2="140"/>
+            <text class="msg-label" x="5" y="138" style="font-size:6.5px;fill:var(--text-muted);">later…</text>
+            <line class="msg-line-green" x1="427" y1="154" x2="168" y2="154"/>
+            <text class="msg-label" x="230" y="150" style="fill:var(--sage);">reclaim dead tuple space</text>
+            <rect class="note-box" x="340" y="160" width="135" height="14"/>
+            <text class="note-label" x="345" y="170">If no open txn needs it</text>
+        </svg>
+        <ul class="bullets reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <li>UPDATE creates a <strong>new tuple</strong>. Old one becomes dead.</li>
+            <li>Dead tuples accumulate &rarr; table bloat &rarr; slower scans</li>
+            <li>Vacuum reclaims space, but competes with your workload</li>
+            <li>Autovacuum defaults are <strong>conservative</strong> &mdash; writes can outpace it</li>
+        </ul>
+    </div>
+    <span class="slide-num">24 / 30</span>
+</section>
+
+<!-- ─── SLIDE 24 · DEMO: VACUUM ──────────────────── -->
+<section class="slide" id="slide-20" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; demo_vacuum.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Watch bloat <em style="color:var(--sage);">grow</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:550px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">psql — before and after</span></div>
+            <div class="code-body"><span class="k">SELECT</span> n_live_tup, n_dead_tup,
+       pg_size_pretty(pg_total_relation_size(<span class="s">'orders'</span>))
+  <span class="k">FROM</span> pg_stat_user_tables
+ <span class="k">WHERE</span> relname = <span class="s">'orders'</span>;
+
+<span class="c">-- Then:</span>
+<span class="k">VACUUM VERBOSE</span> orders;</div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Disable autovacuum. Run 100k UPDATEs. Watch dead tuples pile up. VACUUM to reclaim.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">25 / 30</span>
+</section>
+
+<!-- ─── SLIDE 25 · TRANSITION: SYNTHESIS ──────── -->
+<section class="slide hour-divider" id="slide-trans-4" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Synthesis</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Putting it <em style="color:var(--warm);">all together</em></h2>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">Connections. WAL. Buffers. MVCC. Locks.<br>One benchmark to rule them all.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">26 / 30</span>
+</section>
+
+<!-- ─── SLIDE 26 · INSTRUMENT EVERYTHING ─────────── -->
+<section class="slide" id="slide-21">
+    <div class="slide-content" style="max-width:min(90vw,950px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Cheat sheet</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Instrument <em>everything</em></h2>
+        <div class="two-col reveal" style="flex:unset;margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <div class="col">
+                <span class="col-label" style="color:var(--dusty-blue);">Postgres side</span>
+                <ul class="bullets">
+                    <li><code>pg_stat_activity</code> &mdash; connections, waits</li>
+                    <li><code>pg_stat_statements</code> &mdash; calls, mean_exec_time</li>
+                    <li><code>pg_stat_bgwriter</code> &mdash; checkpoint pressure</li>
+                    <li><code>pg_stat_user_tables</code> &mdash; dead tuples, vacuum</li>
+                    <li><code>pg_buffercache</code> &mdash; buffer pool contents</li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">OS side</span>
+                <ul class="bullets">
+                    <li><code>iostat -x 1</code> &mdash; disk util &amp; await</li>
+                    <li><code>vmstat 1</code> &mdash; context switches, CPU</li>
+                    <li><code>htop</code> / <code>ps aux</code> &mdash; per-process view</li>
+                    <li><code>dmesg</code> &mdash; OOM kill evidence</li>
+                </ul>
+            </div>
+        </div>
+        <div class="callout callout-win reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+            <span class="callout-text">All queries are in <code>instrument.sql</code>. Keep it open in another psql tab during every demo.</span>
+        </div>
+    </div>
+    <span class="slide-num">27 / 30</span>
+</section>
+
+<!-- ─── SLIDE 27 · THE FULL PICTURE ──────────────── -->
+<section class="slide" id="slide-22" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; run_all.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">The full <em style="color:var(--warm);">picture</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:680px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">run_all.py &mdash; 100k rows</span></div>
+            <div class="code-body" style="font-size:clamp(0.52rem,0.85vw,0.7rem);"><span class="v">Scenario</span>                      TPS  vs Naive  <span class="c">p50ms  p95ms  p99ms</span>
+<span class="p">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</span>
+  Naive (1 conn, sync)     <span class="g">1,778</span>     1.0&times;  <span class="c"> 0.53   0.79   1.03</span>
+  Async (10 conns)         <span class="g">6,774</span>     3.8&times;  <span class="c"> 1.37   2.23   3.26</span>
+  Async (50 conns)        <span class="g">11,657</span>     6.6&times;  <span class="c"> 3.95   6.85   9.11</span>
+  Async (50, sync=off)    <span class="g">14,271</span>     8.0&times;  <span class="c"> 2.81   7.11  12.38</span>
+  COPY (batch=1000)       <span class="g">93,083</span>    52.3&times;  <span class="c"> 0.01   0.01   0.01</span>
+  COPY (4 parallel)      <span class="g">226,726</span>   127.5&times;  <span class="c"> 0.02   0.02   0.03</span>
+  Hot row (50 conns)       <span class="g">2,584</span>     1.5&times;  <span class="c">13.19  58.72  91.02</span></div>
+        </div>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">28 / 30</span>
+</section>
+
+<!-- ─── SLIDE 28 · CIRCLE BACK ───────────────────── -->
+<section class="slide" id="slide-23">
+    <div class="geo-accent geo-line" style="top:30%;left:5%;width:clamp(60px,12vw,150px);"></div>
+    <div class="geo-accent geo-dot" style="top:32%;left:6%;"></div>
+    <div class="slide-content" style="max-width:min(90vw,800px);margin:0 auto;">
+        <div class="reveal label" style="margin-bottom:clamp(0.8rem,2vh,1.5rem);">Circle back</div>
+        <h2 class="reveal">Why did it <em>die?</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <li><strong>Connections are expensive.</strong> Each one is an OS process with private memory.</li>
+            <li><strong>Configuration matters.</strong> <code>max_connections</code>, <code>work_mem</code>, <code>shared_buffers</code> interact.</li>
+            <li><strong>The bottleneck is rarely what you think.</strong> Measure, don't guess.</li>
+            <li><strong>Postgres is fast enough</strong> &mdash; if you understand the constraints.</li>
+        </ul>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <span class="callout-icon">&#128161;</span>
+            <span class="callout-text">From 1.8k to 227k TPS on the same hardware. The only thing that changed was <strong>how</strong> we talked to the database.</span>
+        </div>
+    </div>
+    <span class="slide-num">29 / 30</span>
+</section>
+
+<!-- ─── SLIDE 29 · WHAT'S NEXT ───────────────────── -->
+<section class="slide" id="slide-24">
+    <div class="geo-accent geo-circle" style="top:15%;right:10%;width:clamp(80px,15vw,200px);height:clamp(80px,15vw,200px);border-color:rgba(0,0,0,0.05);"></div>
+    <div class="geo-accent geo-dot" style="bottom:20%;left:12%;"></div>
+    <div class="slide-content" style="max-width:min(90vw,800px);margin:0 auto;align-items:center;text-align:center;">
+        <div class="reveal label" style="margin-bottom:clamp(1rem,3vh,2.5rem);">Next lesson</div>
+        <div class="big-question reveal" style="text-align:center;">What if you need <em>10&times;</em> your observed maximum?</div>
+        <div class="hr-editorial reveal" style="margin-top:clamp(1.5rem,3vh,2.5rem);width:min(300px,60vw);"><span>lesson 2</span></div>
+        <p class="subtitle reveal" style="text-align:center;max-width:500px;margin-top:clamp(0.5rem,1vh,0.8rem);">Distribute the OLTP layer. CockroachDB. Raft consensus. The price of coordination.</p>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.8rem,1.5vh,1.2rem);text-align:left;">
+            <span class="callout-icon">&#128161;</span>
+            <span class="callout-text">Spoiler: distribution doesn't give you 10&times;. It gives you fault tolerance and horizontal scale &mdash; at a <strong>latency cost</strong>. You'll measure exactly how much.</span>
+        </div>
+    </div>
+    <span class="slide-num">30 / 30</span>
+</section>
+
+<!-- ─── ANNEX · SETUP ─────────────────────────────── -->
+<section class="slide" id="slide-annex-0">
+    <div class="slide-content" style="max-width:min(90vw,950px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--dusty-blue);border-color:var(--dusty-blue);">Annex</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Environment <em>setup</em></h2>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+            <div class="code-body"><span class="c"># 1. Start Colima with enough resources</span>
+<span class="v">$</span> colima start --cpu <span class="g">4</span> --memory <span class="g">8</span> --disk <span class="g">20</span>
+
+<span class="c"># 2. Start the constrained Postgres container</span>
+<span class="v">$</span> cd src-lesson1
+<span class="v">$</span> docker compose up -d
+
+<span class="c"># 3. Verify it's healthy</span>
+<span class="v">$</span> docker compose ps   <span class="c"># State: healthy</span>
+
+<span class="c"># 4. Connect</span>
+<span class="v">$</span> psql postgresql://bench:bench@localhost:5432/bench
+
+<span class="c"># 5. Install Python deps</span>
+<span class="v">$</span> uv sync</div>
+        </div>
+        <div class="two-col reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--dusty-blue);">Container constraints</span>
+                <ul class="bullets">
+                    <li>2 CPUs, 4 GB RAM</li>
+                    <li><code>max_connections = 600</code></li>
+                    <li><code>shared_buffers = 256MB</code></li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">Extensions preloaded</span>
+                <ul class="bullets">
+                    <li><code>pg_stat_statements</code></li>
+                    <li><code>pg_buffercache</code></li>
+                    <li><code>wal_level = logical</code> (for Lesson 5)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">Annex</span>
+</section>
+
+<!-- ─── ANNEX · WORK_MEM ─────────────────────────── -->
+<section class="slide" id="slide-annex-1">
+    <div class="geo-accent geo-dot" style="top:15%;left:10%;"></div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--plum);border-color:var(--plum);">Annex</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);"><code style="font-family:var(--font-mono);">work_mem</code>: spill to <em>disk</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>Each sort/hash operation gets up to <code>work_mem</code> of RAM</li>
+            <li>Exceeds limit &rarr; spills to temp files on disk (slow)</li>
+            <li>Danger: <code>work_mem</code> &times; active connections &times; ops per query = total memory</li>
+        </ul>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">demo_work_mem.py</span></div>
+            <div class="code-body"><span class="c"># 64kB work_mem → external merge sort (disk)</span>
+<span class="k">SET</span> work_mem = <span class="s">'64kB'</span>;
+<span class="k">EXPLAIN ANALYZE</span> <span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">ORDER BY</span> amount <span class="k">DESC</span>;
+<span class="c">-- Sort Method: external merge  Disk: 4096kB</span>
+
+<span class="c"># 256MB work_mem → in-memory quicksort</span>
+<span class="k">SET</span> work_mem = <span class="s">'256MB'</span>;
+<span class="k">EXPLAIN ANALYZE</span> <span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">ORDER BY</span> amount <span class="k">DESC</span>;
+<span class="c">-- Sort Method: quicksort  Memory: 12800kB</span></div>
+        </div>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">Setting <code>work_mem = 256MB</code> with 100 connections = up to <strong>25 GB</strong> just for sorts. Same memory explosion that killed us in slide 2.</span>
+        </div>
+    </div>
+    <span class="slide-num">Annex</span>
+</section>
+
+<!-- ─── ANNEX · TECH STACK ─────────────────────────── -->
+<section class="slide" id="slide-annex-2">
+    <div class="geo-accent geo-circle" style="top:8%;right:6%;width:180px;height:180px;opacity:0.04;"></div>
+    <div class="slide-content" style="max-width:min(90vw,950px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Annex</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Tech stack &mdash; <em>why each thing</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.6rem,1.2vh,1rem);flex:unset;gap:clamp(1rem,2vw,2rem);">
+            <div class="col" style="display:flex;flex-direction:column;gap:clamp(0.5rem,1vh,0.8rem);">
+                <div>
+                    <span class="col-label" style="color:var(--dusty-blue);">PostgreSQL</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">The industry default OLTP engine. We're not learning Postgres — we're using it to learn what <em>every</em> transactional database has to deal with.</p>
+                </div>
+                <div>
+                    <span class="col-label" style="color:var(--terracotta);">Redpanda</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Kafka-compatible, single binary, no JVM. Same API you'll use in production — without the ops overhead that would eat our lab time.</p>
+                </div>
+                <div>
+                    <span class="col-label" style="color:var(--plum);">PySpark</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Still the dominant batch processing framework in the industry. Python API, real distributed execution, runs fine on a laptop via local mode.</p>
+                </div>
+            </div>
+            <div class="col" style="display:flex;flex-direction:column;gap:clamp(0.5rem,1vh,0.8rem);">
+                <div>
+                    <span class="col-label" style="color:var(--sage);">PyFlink</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Exactly-once stateful stream processing — the hard version of the problem. PyFlink exposes the real mental model without hiding it behind abstractions.</p>
+                </div>
+                <div>
+                    <span class="col-label" style="color:var(--gold);">ClickHouse</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Columnar OLAP that actually runs on a laptop. Billion-row queries in seconds — makes the OLTP vs OLAP tradeoff impossible to ignore.</p>
+                </div>
+                <div>
+                    <span class="col-label" style="color:var(--dusty-blue);">Docker + uv</span>
+                    <p style="margin:0.2rem 0 0;font-size:clamp(0.8rem,1.6vw,1rem);color:var(--ink);line-height:1.5;">Reproducible environments so we debug systems, not setups. <code>uv</code> installs in seconds — no one loses 20 minutes to pip.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">Annex</span>
+</section>
+
+<script>
+    /* ===========================================
+       SLIDE PRESENTATION CONTROLLER
+       =========================================== */
+    class SlidePresentation {
+        constructor() {
+            this.slides = Array.from(document.querySelectorAll('.slide'));
+            this.total = this.slides.length;
+            this.current = 0;
+            this.progressBar = document.getElementById('progressBar');
+            this.navDotsContainer = document.getElementById('navDots');
+            this.buildNavDots();
+            this.setupIntersectionObserver();
+            this.setupKeyboard();
+            this.setupWheel();
+            this.setupTouch();
+        }
+
+        buildNavDots() {
+            this.slides.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+                dot.addEventListener('click', () => this.goTo(i));
+                this.navDotsContainer.appendChild(dot);
+            });
+        }
+
+        setupIntersectionObserver() {
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        this.current = this.slides.indexOf(entry.target);
+                        this.updateUI();
+                    }
+                });
+            }, { threshold: 0.55 });
+            this.slides.forEach(s => obs.observe(s));
+        }
+
+        updateUI() {
+            const pct = this.total > 1 ? (this.current / (this.total - 1)) * 100 : 0;
+            this.progressBar.style.width = pct + '%';
+            document.querySelectorAll('.nav-dot').forEach((d, i) => {
+                d.classList.toggle('active', i === this.current);
+            });
+        }
+
+        goTo(index) {
+            const idx = Math.max(0, Math.min(this.total - 1, index));
+            this.slides[idx].scrollIntoView({ behavior: 'smooth' });
+        }
+
+        setupKeyboard() {
+            document.addEventListener('keydown', e => {
+                if (['ArrowDown','ArrowRight','Space','PageDown'].includes(e.code)) {
+                    e.preventDefault(); this.goTo(this.current + 1);
+                } else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.code)) {
+                    e.preventDefault(); this.goTo(this.current - 1);
+                } else if (e.code === 'Home') { e.preventDefault(); this.goTo(0); }
+                else if (e.code === 'End') { e.preventDefault(); this.goTo(this.total - 1); }
+            });
+        }
+
+        setupWheel() {
+            let lastWheel = 0;
+            document.addEventListener('wheel', e => {
+                e.preventDefault();
+                const now = Date.now();
+                if (now - lastWheel < 700) return;
+                lastWheel = now;
+                if (e.deltaY > 0) this.goTo(this.current + 1);
+                else this.goTo(this.current - 1);
+            }, { passive: false });
+        }
+
+        setupTouch() {
+            let startY = 0;
+            document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+            document.addEventListener('touchend', e => {
+                const diff = startY - e.changedTouches[0].clientY;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) this.goTo(this.current + 1);
+                    else this.goTo(this.current - 1);
+                }
+            }, { passive: true });
+        }
+    }
+
+    new SlidePresentation();
+</script>
+</body>
+</html>

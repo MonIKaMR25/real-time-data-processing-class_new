@@ -1,0 +1,39 @@
+# The circle-closer overlay: Debezium (Kafka Connect) reads the LESSON 5
+# Postgres WAL and publishes change events into THIS lesson's Kafka cluster.
+#
+# One slot on Postgres. Unlimited consumer groups on Kafka. The L5 wall, gone.
+#
+# Requires BOTH stacks up:
+#   cd ../src-lesson5 && docker compose up -d        # the source
+#   cd ../src-lesson6 && docker compose up -d        # the log
+# Then, from src-lesson6:
+#   docker compose -f docker-compose.yml -f debezium/docker-compose.debezium.yml up -d
+#   ./debezium/register.sh
+#
+# The connect container straddles two networks: this lesson's (to reach the
+# brokers) and lesson 5's (to reach postgres by its service name).
+
+services:
+  connect:
+    image: quay.io/debezium/connect:2.7
+    container_name: lesson6-connect
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      GROUP_ID: "lesson6-connect"
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_statuses
+    networks:
+      - default
+      - lesson5
+    depends_on:
+      kafka-1: {condition: service_healthy}
+      kafka-2: {condition: service_healthy}
+      kafka-3: {condition: service_healthy}
+
+networks:
+  lesson5:
+    external: true
+    name: src-lesson5_default

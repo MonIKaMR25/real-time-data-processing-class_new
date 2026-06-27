@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson 3 — Why is OLAP a fundamentally different problem?</title>
+
+    <!-- Fonts: Fraunces (display serif) + Work Sans (body) + JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,700&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES (THEME)
+           Vintage Editorial — same design system as Lessons 1 & 2
+           =========================================== */
+        :root {
+            --cream: #f5f2eb;
+            --cream-dark: #ebe7dc;
+            --charcoal: #1a1a1a;
+            --ink: #2c2c2c;
+            --text-secondary: #6b6560;
+            --text-muted: #9e9890;
+            --warm: #c65d2a;
+            --warm-dim: rgba(198, 93, 42, 0.1);
+            --terracotta: #c4553d;
+            --gold: #b8941f;
+            --sage: #5a7a5e;
+            --sage-dim: rgba(90, 122, 94, 0.1);
+            --dusty-blue: #5b7e9e;
+            --dusty-blue-dim: rgba(91, 126, 158, 0.1);
+            --plum: #7a5480;
+            --plum-dim: rgba(122, 84, 128, 0.1);
+            --rule: rgba(0, 0, 0, 0.08);
+
+            --font-display: 'Fraunces', serif;
+            --font-body: 'Work Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            --title-size: clamp(2.4rem, 7vw, 5.5rem);
+            --h2-size: clamp(1.5rem, 3.8vw, 2.8rem);
+            --body-size: clamp(0.75rem, 1.35vw, 1.05rem);
+            --small-size: clamp(0.62rem, 0.95vw, 0.8rem);
+            --mono-size: clamp(0.6rem, 1vw, 0.78rem);
+
+            --slide-padding: clamp(1.5rem, 5vw, 5rem);
+            --content-gap: clamp(0.5rem, 2vw, 2rem);
+            --element-gap: clamp(0.25rem, 1vw, 1rem);
+
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration: 0.6s;
+        }
+
+        /* ===========================================
+           VIEWPORT FITTING: MANDATORY BASE STYLES
+           =========================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+            background: var(--cream);
+            color: var(--charcoal);
+        }
+        html {
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: var(--cream);
+        }
+
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-height: 100%;
+            overflow: hidden;
+            padding: var(--slide-padding);
+            position: relative;
+            z-index: 2;
+        }
+
+        .card, .container, .content-box {
+            max-width: min(90vw, 1000px);
+            max-height: min(80vh, 700px);
+        }
+
+        .feature-list, .bullet-list { gap: clamp(0.4rem, 1vh, 1rem); }
+        .feature-list li, .bullet-list li { font-size: var(--body-size); line-height: 1.4; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+        }
+
+        img, .image-container {
+            max-width: 100%;
+            max-height: min(50vh, 400px);
+            object-fit: contain;
+        }
+
+        @media (max-height: 700px) {
+            :root {
+                --slide-padding: clamp(0.75rem, 3vw, 2rem);
+                --content-gap: clamp(0.4rem, 1.5vw, 1rem);
+                --title-size: clamp(1.25rem, 4.5vw, 2.5rem);
+                --h2-size: clamp(1rem, 3vw, 1.75rem);
+            }
+        }
+        @media (max-height: 600px) {
+            :root {
+                --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem);
+                --content-gap: clamp(0.3rem, 1vw, 0.75rem);
+                --title-size: clamp(1.1rem, 4vw, 2rem);
+                --body-size: clamp(0.7rem, 1.2vw, 0.95rem);
+            }
+            .nav-dots, .keyboard-hint, .decorative, .geo-accent { display: none; }
+        }
+        @media (max-height: 500px) {
+            :root {
+                --slide-padding: clamp(0.4rem, 2vw, 1rem);
+                --title-size: clamp(1rem, 3.5vw, 1.5rem);
+                --h2-size: clamp(0.9rem, 2.5vw, 1.25rem);
+                --body-size: clamp(0.65rem, 1vw, 0.85rem);
+            }
+        }
+        @media (max-width: 600px) {
+            :root { --title-size: clamp(1.25rem, 7vw, 2.5rem); }
+            .grid { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+            html { scroll-behavior: auto; }
+        }
+
+        /* =========================================== */
+        .geo-accent { position: absolute; pointer-events: none; z-index: 1; }
+        .geo-circle {
+            width: clamp(60px, 12vw, 160px); height: clamp(60px, 12vw, 160px);
+            border-radius: 50%; border: 2px solid var(--rule);
+        }
+        .geo-dot {
+            width: clamp(6px, 1vw, 10px); height: clamp(6px, 1vw, 10px);
+            border-radius: 50%; background: var(--warm); opacity: 0.4;
+        }
+        .geo-line { height: 1px; background: var(--rule); }
+        .geo-vline { width: 1px; background: var(--rule); }
+
+        .hr-editorial {
+            display: flex; align-items: center;
+            gap: clamp(0.5rem, 1.2vw, 1rem);
+            margin: clamp(0.5rem, 1.2vh, 1rem) 0;
+        }
+        .hr-editorial::before, .hr-editorial::after {
+            content: ''; flex: 1; height: 1px; background: var(--rule);
+        }
+        .hr-editorial span {
+            font-family: var(--font-display); font-size: var(--small-size);
+            font-weight: 400; font-style: italic; color: var(--text-muted); white-space: nowrap;
+        }
+
+        .section-marker {
+            display: inline-flex; align-items: center;
+            gap: clamp(0.3rem, 0.7vw, 0.5rem);
+            font-family: var(--font-body); font-size: var(--small-size);
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+            padding-bottom: clamp(0.3rem, 0.6vh, 0.5rem); border-bottom: 2px solid;
+        }
+
+        .display-title {
+            font-family: var(--font-display); font-size: var(--title-size);
+            font-weight: 900; color: var(--charcoal); line-height: 0.95; letter-spacing: -0.02em;
+        }
+        .display-title em { font-weight: 400; font-style: italic; }
+
+        h2 {
+            font-family: var(--font-display); font-size: var(--h2-size);
+            font-weight: 700; color: var(--charcoal); line-height: 1.08;
+            margin-bottom: clamp(0.4rem, 1vh, 0.8rem);
+        }
+        h2 em { font-weight: 400; font-style: italic; }
+
+        .subtitle {
+            font-family: var(--font-body); font-size: clamp(0.78rem, 1.4vw, 1.05rem);
+            color: var(--text-secondary); line-height: 1.55; max-width: 560px;
+        }
+
+        .label {
+            font-family: var(--font-body); font-size: var(--small-size);
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-muted);
+        }
+
+        .bullets {
+            list-style: none; display: flex; flex-direction: column;
+            gap: clamp(0.25rem, 0.55vh, 0.42rem);
+        }
+        .bullets li {
+            font-family: var(--font-body); font-size: clamp(0.72rem, 1.2vw, 0.9rem);
+            color: var(--charcoal); line-height: 1.4;
+            padding-left: 1.2em; text-indent: -1.2em;
+        }
+        .bullets li::before { content: '\2014\00a0'; color: var(--warm); font-weight: 700; }
+
+        .two-col {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: clamp(1rem, 2.5vw, 2rem); flex: 1; min-height: 0; overflow: hidden;
+        }
+        @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+        .col { display: flex; flex-direction: column; gap: clamp(0.3rem, 0.7vh, 0.55rem); min-height: 0; overflow: hidden; }
+        .col-label {
+            font-family: var(--font-body); font-size: var(--small-size);
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+        }
+
+        .callout {
+            display: flex; align-items: flex-start;
+            gap: clamp(0.35rem, 0.8vw, 0.6rem);
+            padding: clamp(0.38rem, 0.8vh, 0.6rem) clamp(0.5rem, 1.1vw, 0.9rem);
+            border-radius: 4px; border-left: 3px solid; flex-shrink: 0;
+        }
+        .callout-insight { background: var(--dusty-blue-dim); border-color: var(--dusty-blue); }
+        .callout-friction { background: rgba(196, 85, 61, 0.07); border-color: var(--terracotta); }
+        .callout-win { background: var(--sage-dim); border-color: var(--sage); }
+        .callout-icon { flex-shrink: 0; font-size: clamp(0.75rem, 1.2vw, 0.95rem); }
+        .callout-icon svg { width: 1em; height: 1em; vertical-align: middle; }
+        .callout-text {
+            font-family: var(--font-body); font-size: var(--small-size);
+            color: var(--ink); line-height: 1.45;
+        }
+        .callout-text code {
+            font-family: var(--font-mono); font-size: 0.88em;
+            background: rgba(0, 0, 0, 0.06); padding: 0.05em 0.35em; border-radius: 2px;
+        }
+
+        .code-block {
+            background: var(--charcoal); border-radius: 4px; overflow: hidden; flex: 1; min-height: 0;
+        }
+        .code-header {
+            display: flex; align-items: center;
+            padding: clamp(0.25rem, 0.45vh, 0.35rem) clamp(0.5rem, 1vw, 0.8rem);
+            background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .code-label {
+            font-family: var(--font-mono); font-size: clamp(0.48rem, 0.75vw, 0.6rem);
+            color: rgba(255, 255, 255, 0.35); margin-left: auto;
+        }
+        .code-dot { width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+        .code-dot:nth-child(1) { background: #e06c60; }
+        .code-dot:nth-child(2) { background: #e5bf56; }
+        .code-dot:nth-child(3) { background: #69c064; }
+        .code-body {
+            padding: clamp(0.4rem, 0.9vh, 0.7rem) clamp(0.6rem, 1.2vw, 1rem);
+            font-family: var(--font-mono); font-size: var(--mono-size);
+            color: #d4d4d4; line-height: 1.65; white-space: pre; overflow: hidden;
+            text-align: left;
+        }
+        .c  { color: #6a9955; }
+        .k  { color: #569cd6; }
+        .s  { color: #ce9178; }
+        .fn { color: #dcdcaa; }
+        .v  { color: #9cdcfe; }
+        .p  { color: #d4d4d4; }
+        .g  { color: #b5cea8; }
+        .n  { color: #4ec9b0; }
+
+        .arch-diagram {
+            font-family: var(--font-mono); font-size: clamp(0.52rem, 0.85vw, 0.68rem);
+            color: var(--charcoal); line-height: 1.5; white-space: pre;
+            background: var(--cream-dark);
+            padding: clamp(0.6rem, 1.2vh, 1rem) clamp(0.8rem, 1.5vw, 1.2rem);
+            border-radius: 4px; border: 1px solid var(--rule); overflow: hidden;
+        }
+
+        .big-question {
+            font-family: var(--font-display); font-size: clamp(1.4rem, 3.5vw, 2.6rem);
+            font-weight: 700; line-height: 1.15; color: var(--charcoal); max-width: 700px;
+        }
+        .big-question em { font-weight: 400; font-style: italic; color: var(--warm); }
+
+        .hl { background: var(--warm-dim); color: var(--warm); padding: 0.08em 0.4em; border-radius: 2px; font-weight: 600; }
+        .hl-dark { background: var(--charcoal); color: var(--cream); padding: 0.08em 0.45em; border-radius: 2px; font-weight: 700; }
+
+        .formula-box {
+            background: var(--cream-dark); border: 1px solid var(--rule);
+            border-radius: 4px;
+            padding: clamp(0.8rem, 1.5vh, 1.2rem) clamp(1rem, 2vw, 1.5rem);
+            text-align: center;
+        }
+        .formula {
+            font-family: var(--font-mono); font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+            color: var(--charcoal); font-weight: 600;
+        }
+        .formula .accent { color: var(--warm); }
+
+        .latency-table {
+            width: 100%; border-collapse: collapse; margin-top: clamp(0.3rem, 0.6vh, 0.5rem);
+        }
+        .latency-table th, .latency-table td {
+            font-family: var(--font-body); font-size: clamp(0.62rem, 1vw, 0.82rem);
+            padding: clamp(0.2rem, 0.4vh, 0.35rem) clamp(0.4rem, 0.8vw, 0.7rem);
+            text-align: left; border-bottom: 1px solid var(--rule);
+        }
+        .latency-table th {
+            font-weight: 700; color: var(--text-secondary); text-transform: uppercase;
+            letter-spacing: 0.05em; font-size: clamp(0.52rem, 0.8vw, 0.65rem);
+        }
+        .latency-table td:last-child { font-family: var(--font-mono); text-align: right; }
+        .latency-table tr:last-child td { border-bottom: none; }
+        .latency-table .row-hot { color: var(--warm); font-weight: 600; }
+
+        /* === PROMPT BLOCK (new for Lesson 3) === */
+        .prompt-block {
+            background: rgba(91, 126, 158, 0.08); border: 1px solid rgba(91, 126, 158, 0.25);
+            border-radius: 4px; padding: clamp(0.4rem, 0.8vh, 0.6rem) clamp(0.6rem, 1.2vw, 1rem);
+        }
+        .prompt-label {
+            font-family: var(--font-mono); font-size: clamp(0.45rem, 0.7vw, 0.55rem);
+            color: var(--dusty-blue); font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.1em; margin-bottom: 0.3em;
+        }
+        .prompt-text {
+            font-family: var(--font-body); font-size: clamp(0.65rem, 1.05vw, 0.85rem);
+            color: var(--ink); line-height: 1.5; font-style: italic;
+        }
+
+        .reveal {
+            opacity: 0; transform: translateY(16px);
+            transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease);
+        }
+        .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+        .slide.visible .reveal:nth-child(1) { transition-delay: 0.06s; }
+        .slide.visible .reveal:nth-child(2) { transition-delay: 0.14s; }
+        .slide.visible .reveal:nth-child(3) { transition-delay: 0.22s; }
+        .slide.visible .reveal:nth-child(4) { transition-delay: 0.30s; }
+        .slide.visible .reveal:nth-child(5) { transition-delay: 0.38s; }
+        .slide.visible .reveal:nth-child(6) { transition-delay: 0.46s; }
+        .slide.visible .reveal:nth-child(7) { transition-delay: 0.54s; }
+
+        .progress-bar {
+            position: fixed; bottom: 0; left: 0; height: 2px;
+            background: var(--warm); z-index: 200; transition: width 0.35s ease; width: 0%;
+        }
+        .nav-dots {
+            position: fixed; right: clamp(0.6rem, 1.4vw, 1.2rem); top: 50%;
+            transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 200;
+        }
+        .nav-dot {
+            width: clamp(4px, 0.5vw, 6px); height: clamp(4px, 0.5vw, 6px);
+            border-radius: 50%; background: rgba(0, 0, 0, 0.12); cursor: pointer; transition: all 0.3s ease;
+        }
+        .nav-dot:hover { background: rgba(0, 0, 0, 0.25); }
+        .nav-dot.active { background: var(--warm); transform: scale(1.6); }
+        .slide-num {
+            position: absolute; bottom: clamp(0.6rem, 1.5vh, 1.2rem); right: clamp(1rem, 2.5vw, 2rem);
+            font-family: var(--font-mono); font-size: clamp(0.48rem, 0.75vw, 0.6rem); color: var(--text-muted); z-index: 3;
+        }
+        .keyboard-hint {
+            position: fixed; bottom: clamp(0.5rem, 1.2vh, 0.9rem); left: 50%; transform: translateX(-50%);
+            font-family: var(--font-mono); font-size: clamp(0.42rem, 0.65vw, 0.52rem);
+            color: var(--text-muted); opacity: 0.5; z-index: 200;
+        }
+        @media (max-height: 600px) { .nav-dots, .keyboard-hint, .slide-num { display: none; } }
+
+        .margin-def {
+            position: absolute; right: clamp(0.6rem, 1.5vw, 1.2rem);
+            max-width: clamp(100px, 14vw, 160px);
+            padding: clamp(0.25rem, 0.5vh, 0.4rem) clamp(0.35rem, 0.7vw, 0.5rem);
+            background: var(--cream-dark); border-left: 2px solid var(--gold);
+            border-radius: 0 3px 3px 0;
+            font-family: var(--font-body); font-size: clamp(0.4rem, 0.65vw, 0.5rem);
+            color: var(--text-secondary); line-height: 1.4; z-index: 4;
+        }
+        .margin-def strong { color: var(--charcoal); font-weight: 700; display: block;
+            font-family: var(--font-mono); font-size: clamp(0.42rem, 0.7vw, 0.55rem);
+            margin-bottom: 0.15em;
+        }
+        .slide[style*="charcoal"] .margin-def,
+        .hour-divider .margin-def {
+            background: rgba(255,255,255,0.07); border-left-color: var(--gold);
+            color: rgba(255,255,255,0.55);
+        }
+        .slide[style*="charcoal"] .margin-def strong,
+        .hour-divider .margin-def strong {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .hour-divider { background: var(--charcoal); }
+    </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<nav class="nav-dots" id="navDots"></nav>
+<span class="keyboard-hint">&uarr; &darr; navigate</span>
+
+<!-- ═══════════════════════════════════════════════════
+     LESSON 3: WHY IS OLAP A FUNDAMENTALLY DIFFERENT PROBLEM?
+     ═══════════════════════════════════════════════════ -->
+
+<!-- ─── SLIDE 1 · TITLE ──────────────────────────── -->
+<section class="slide" id="slide-0">
+    <div class="geo-accent geo-circle" style="top:8%;right:12%;"></div>
+    <div class="geo-accent geo-dot" style="top:15%;right:10%;"></div>
+    <div class="geo-accent geo-line" style="bottom:25%;left:8%;width:clamp(40px,8vw,100px);"></div>
+    <div class="slide-content" style="max-width:min(90vw,900px);margin:0 auto;">
+        <div class="reveal label" style="margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Lesson 3 &middot; Real-Time Data Processing</div>
+        <h1 class="display-title reveal">Why is OLAP a<br>fundamentally<br><em>different</em> problem?</h1>
+        <p class="subtitle reveal" style="margin-top:clamp(0.5rem,1.2vh,1rem);">Row stores vs. column stores. DuckDB vs. Postgres. Same cage &mdash; orders of magnitude faster.</p>
+    </div>
+    <span class="slide-num">01 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 2 · RECAP L2 ─────────────────────────── -->
+<section class="slide" id="slide-recap">
+    <div class="slide-content" style="max-width:min(90vw,900px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--dusty-blue);border-color:var(--dusty-blue);">Recap &middot; lesson 2</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Distribution: the <em>trade-off</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>CockroachDB: 3&ndash;8&times; slower per operation than single Postgres</li>
+            <li>You buy <strong>fault tolerance</strong> (quorum writes survive node death)</li>
+            <li>Every write pays consensus tax: leader + 1 network round-trip minimum</li>
+            <li>Contention + distribution = catastrophic (53% retry rate)</li>
+        </ul>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">But we only showed one pattern: <strong>replicate everything via consensus.</strong> What if you want more TPS, not just more availability?</span>
+        </div>
+    </div>
+    <span class="slide-num">02 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 3 · SHARDING: THE OLTP SCALING ANSWER ── -->
+<section class="slide" id="slide-sharding">
+    <div class="margin-def reveal" style="top:30%;">
+        <strong>Shard</strong>
+        A horizontal partition of data. Each shard holds a subset of rows, determined by a shard key.
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Completing the OLTP picture</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Sharding: <em>partition</em> for throughput</h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li><strong>Replication</strong> (Raft, L2): copies of the same data &rarr; fault tolerance, read scale</li>
+            <li><strong>Sharding:</strong> split data by key &rarr; each shard handles independent traffic &rarr; <strong>write scale</strong></li>
+            <li>CockroachDB&rsquo;s &ldquo;ranges&rdquo; ARE shards (auto-split at 512 MB)</li>
+            <li>The cross-range experiment in L2 was sharding in disguise: disjoint key sets = independent contention domains</li>
+        </ul>
+        <svg class="reveal" viewBox="0 0 640 175" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:min(90vw,660px);height:auto;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <style>
+                .sh-box { rx: 5; stroke-width: 1.5; }
+                .sh-leader { fill: rgba(198,93,42,0.08); stroke: var(--warm); }
+                .sh-replica { fill: rgba(0,0,0,0.03); stroke: var(--rule); stroke-dasharray: 4 3; }
+                .sh-title { font-family: var(--font-mono); font-size: 8px; fill: var(--charcoal); font-weight: 700; text-anchor: middle; }
+                .sh-sub { font-family: var(--font-mono); font-size: 6.5px; fill: var(--text-muted); text-anchor: middle; }
+                .sh-node { font-family: var(--font-mono); font-size: 7px; fill: var(--charcoal); text-anchor: middle; }
+                .sh-arrow { stroke: var(--sage); stroke-width: 1.5; marker-end: url(#sh-arr); }
+                .sh-arrow-lbl { font-family: var(--font-body); font-size: 7px; fill: var(--sage); font-weight: 600; text-anchor: middle; }
+            </style>
+            <defs>
+                <marker id="sh-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--sage)"/>
+                </marker>
+            </defs>
+
+            <!-- Shard A -->
+            <rect class="sh-box sh-leader" x="15" y="30" width="185" height="90"/>
+            <text class="sh-title" x="107" y="18">Shard A (users 1&ndash;1M)</text>
+            <rect x="30" y="45" width="80" height="24" rx="3" fill="var(--warm-dim)" stroke="var(--warm)" stroke-width="1"/>
+            <text class="sh-node" x="70" y="61">Node 1 (L)</text>
+            <rect x="30" y="80" width="80" height="24" rx="3" fill="var(--cream-dark)" stroke="var(--rule)" stroke-width="1"/>
+            <text class="sh-node" x="70" y="96">Node 2 (R)</text>
+
+            <!-- Shard B -->
+            <rect class="sh-box sh-leader" x="225" y="30" width="185" height="90"/>
+            <text class="sh-title" x="317" y="18">Shard B (users 1M&ndash;2M)</text>
+            <rect x="240" y="45" width="80" height="24" rx="3" fill="var(--warm-dim)" stroke="var(--warm)" stroke-width="1"/>
+            <text class="sh-node" x="280" y="61">Node 3 (L)</text>
+            <rect x="240" y="80" width="80" height="24" rx="3" fill="var(--cream-dark)" stroke="var(--rule)" stroke-width="1"/>
+            <text class="sh-node" x="280" y="96">Node 4 (R)</text>
+
+            <!-- Shard C -->
+            <rect class="sh-box sh-leader" x="435" y="30" width="185" height="90"/>
+            <text class="sh-title" x="527" y="18">Shard C (users 2M&ndash;3M)</text>
+            <rect x="450" y="45" width="80" height="24" rx="3" fill="var(--warm-dim)" stroke="var(--warm)" stroke-width="1"/>
+            <text class="sh-node" x="490" y="61">Node 5 (L)</text>
+            <rect x="450" y="80" width="80" height="24" rx="3" fill="var(--cream-dark)" stroke="var(--rule)" stroke-width="1"/>
+            <text class="sh-node" x="490" y="96">Node 6 (R)</text>
+
+            <!-- Independent write arrows -->
+            <line class="sh-arrow" x1="107" y1="135" x2="107" y2="125"/>
+            <text class="sh-arrow-lbl" x="107" y="148">writes</text>
+            <line class="sh-arrow" x1="317" y1="135" x2="317" y2="125"/>
+            <text class="sh-arrow-lbl" x="317" y="148">writes</text>
+            <line class="sh-arrow" x1="527" y1="135" x2="527" y2="125"/>
+            <text class="sh-arrow-lbl" x="527" y="148">writes</text>
+
+            <!-- Bottom note -->
+            <text style="font-family:var(--font-body);font-size:8px;fill:var(--charcoal);font-weight:600;text-anchor:middle;" x="320" y="170">Each shard handles traffic independently &mdash; no coordination between shards</text>
+        </svg>
+    </div>
+    <span class="slide-num">03 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 4 · SHARDING TOOLS ───────────────────── -->
+<section class="slide" id="slide-sharding-tools">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Sharding &middot; in practice</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">How to shard <em>Postgres</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--dusty-blue);">Database-level</span>
+                <ul class="bullets">
+                    <li><strong>Citus:</strong> Postgres extension, distributed tables</li>
+                    <li><strong>Vitess:</strong> MySQL sharding proxy (YouTube scale)</li>
+                    <li><strong>CockroachDB:</strong> auto-sharding via ranges</li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">Application-level</span>
+                <ul class="bullets">
+                    <li>Route by <code>user_id % N</code> in app code</li>
+                    <li>Full control, but: cross-shard joins are your problem</li>
+                    <li>Schema changes must hit every shard</li>
+                </ul>
+            </div>
+        </div>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">Sharding solves write throughput. But now a business analyst asks: <em>&ldquo;What was total revenue last quarter?&rdquo;</em> &mdash; that query must fan out to <strong>every shard</strong>, scan every row, aggregate. There&rsquo;s a better tool for that question.</span>
+        </div>
+    </div>
+    <span class="slide-num">04 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 5 · DEMO: SHARDING ON A LAPTOP ──── -->
+<section class="slide" id="slide-shard-demo" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,820px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; experiment_sharded_copy.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Sharding on a <em style="color:var(--terracotta);">laptop</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(0.6rem,1.2vh,1rem);max-width:600px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell &mdash; experiment_sharded_copy.py</span></div>
+            <div class="code-body"><span class="c"># Experiment 1 &mdash; RF=3 (Raft on), 8 shards</span>
+<span class="v">$</span> ./bench python src/experiment_sharded_copy.py \
+    --ranges <span class="g">8</span> --conns <span class="g">8</span> --rows <span class="g">100000</span>
+
+<span class="c"># Experiment 2 &mdash; RF=1 (Raft off), 10 shards</span>
+<span class="v">$</span> cockroach sql -e <span class="s">"ALTER DATABASE bench CONFIGURE ZONE USING num_replicas=1"</span>
+<span class="v">$</span> ./bench python src/experiment_sharded_copy.py \
+    --ranges <span class="g">10</span> --conns <span class="g">10</span> --rows <span class="g">1000000</span> --batch-size <span class="g">5000</span></div>
+        </div>
+        <table class="latency-table reveal" style="max-width:700px;margin-top:clamp(0.6rem,1.2vh,0.9rem);color:rgba(255,255,255,0.8);">
+            <thead><tr style="color:rgba(255,255,255,0.4);">
+                <th>Config</th><th style="text-align:right;">TPS</th><th style="text-align:right;">vs&nbsp;Postgres</th><th style="text-align:right;">Node&nbsp;dies?</th>
+            </tr></thead>
+            <tbody>
+                <tr style="border-color:rgba(255,255,255,0.08);">
+                    <td>Single Postgres COPY</td>
+                    <td style="font-family:var(--font-mono);text-align:right;color:var(--sage);font-weight:700;">~550k</td>
+                    <td style="font-family:var(--font-mono);text-align:right;">baseline</td>
+                    <td style="font-family:var(--font-mono);text-align:right;color:var(--terracotta);">total&nbsp;outage</td>
+                </tr>
+                <tr style="border-color:rgba(255,255,255,0.08);">
+                    <td>CRDB RF=3 &middot; 8 shards (Raft on)</td>
+                    <td style="font-family:var(--font-mono);text-align:right;color:var(--terracotta);">~50k</td>
+                    <td style="font-family:var(--font-mono);text-align:right;color:var(--terracotta);">11&times;&nbsp;slower</td>
+                    <td style="font-family:var(--font-mono);text-align:right;color:var(--sage);">survives&nbsp;(quorum)</td>
+                </tr>
+                <tr style="border-color:rgba(255,255,255,0.08);">
+                    <td>CRDB RF=1 &middot; 10 shards (Raft off)</td>
+                    <td style="font-family:var(--font-mono);text-align:right;color:rgba(255,255,255,0.65);">~66k</td>
+                    <td style="font-family:var(--font-mono);text-align:right;color:var(--terracotta);">8&times;&nbsp;slower</td>
+                    <td style="font-family:var(--font-mono);text-align:right;color:var(--terracotta);">shard&nbsp;offline</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);background:rgba(196,85,61,0.12);border-color:var(--terracotta);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text" style="color:rgba(255,255,255,0.75);">Removing Raft bought <strong style="color:var(--warm);">+30%</strong> &mdash; the disk was the bottleneck, not consensus. And you traded <strong style="color:var(--terracotta);">availability</strong>, not consistency: RF=1 is still linearizable (one copy is always current), but one dead node silences that shard entirely. This is exactly why Vitess and production sharding tools demand physically separate machines per shard.</span>
+        </div>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">05 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 5b · WRITE BENCHMARK RESULTS ──────────── -->
+<section class="slide" id="slide-write-bench">
+    <div class="slide-content" style="max-width:min(90vw,820px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--terracotta);border-color:var(--terracotta);">Results</div>
+        <h2 class="reveal" style="margin-top:clamp(0.3rem,0.6vh,0.5rem);">The <em>honest</em> write comparison</h2>
+        <table class="latency-table reveal" style="max-width:760px;margin-top:clamp(0.3rem,0.6vh,0.5rem);">
+            <thead>
+                <tr><th>Workload</th><th style="text-align:right;">TPS</th><th style="text-align:right;">p50&nbsp;ms</th><th style="text-align:right;">p95&nbsp;ms</th></tr>
+            </thead>
+            <tbody>
+                <tr style="background:rgba(0,0,0,0.025);"><td colspan="4" style="font-weight:700;font-size:clamp(0.5rem,0.75vw,0.62rem);text-transform:uppercase;letter-spacing:0.07em;color:var(--text-secondary);padding-top:0.5rem;">Postgres &nbsp;&bull;&nbsp; 2 CPU / 4 GB (single node)</td></tr>
+                <tr><td>INSERT &middot; 50 conns</td><td style="font-family:var(--font-mono);text-align:right;">30,190</td><td style="font-family:var(--font-mono);text-align:right;">1.4</td><td style="font-family:var(--font-mono);text-align:right;">3.1</td></tr>
+                <tr><td>COPY &middot; 1 conn, batch=5k</td><td style="font-family:var(--font-mono);text-align:right;">294,871</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td></tr>
+                <tr><td>Hot row &middot; 50 conns</td><td style="font-family:var(--font-mono);text-align:right;">1,692</td><td style="font-family:var(--font-mono);text-align:right;">20.1</td><td style="font-family:var(--font-mono);text-align:right;">88.3</td></tr>
+                <tr style="background:rgba(0,0,0,0.025);"><td colspan="4" style="font-weight:700;font-size:clamp(0.5rem,0.75vw,0.62rem);text-transform:uppercase;letter-spacing:0.07em;color:var(--terracotta);padding-top:0.5rem;">CockroachDB RF=3 &nbsp;&bull;&nbsp; Raft on &nbsp;&bull;&nbsp; 3 &times; (2 CPU / 4 GB)</td></tr>
+                <tr style="color:var(--terracotta);"><td>INSERT &middot; 50 conns</td><td style="font-family:var(--font-mono);text-align:right;">4,099</td><td style="font-family:var(--font-mono);text-align:right;">8.0</td><td style="font-family:var(--font-mono);text-align:right;">24.3</td></tr>
+                <tr style="color:var(--terracotta);"><td>COPY &middot; 1 conn, batch=5k</td><td style="font-family:var(--font-mono);text-align:right;">9,860</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td></tr>
+                <tr style="color:var(--terracotta);"><td>Hot row &middot; local range</td><td style="font-family:var(--font-mono);text-align:right;">103</td><td style="font-family:var(--font-mono);text-align:right;">334</td><td style="font-family:var(--font-mono);text-align:right;">1,234</td></tr>
+                <tr style="color:var(--terracotta);font-weight:600;"><td>Hot row &middot; cross-range 2PC</td><td style="font-family:var(--font-mono);text-align:right;">43</td><td style="font-family:var(--font-mono);text-align:right;">887</td><td style="font-family:var(--font-mono);text-align:right;">1,804</td></tr>
+                <tr style="background:rgba(0,0,0,0.025);"><td colspan="4" style="font-weight:700;font-size:clamp(0.5rem,0.75vw,0.62rem);text-transform:uppercase;letter-spacing:0.07em;color:var(--sage);padding-top:0.5rem;">CockroachDB RF=1 &nbsp;&bull;&nbsp; Raft off &nbsp;&bull;&nbsp; 3 shards, 1 per node</td></tr>
+                <tr><td>INSERT &middot; 50 conns (3 shards)</td><td style="font-family:var(--font-mono);text-align:right;">4,903</td><td style="font-family:var(--font-mono);text-align:right;">7.8</td><td style="font-family:var(--font-mono);text-align:right;">21.4</td></tr>
+                <tr><td>COPY &middot; 3 conns, 1 per shard</td><td style="font-family:var(--font-mono);text-align:right;">35,268</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td><td style="font-family:var(--font-mono);text-align:right;">&mdash;</td></tr>
+                <tr style="color:var(--sage);font-weight:600;"><td>Hot row &middot; 3 independent rows</td><td style="font-family:var(--font-mono);text-align:right;">1,757</td><td style="font-family:var(--font-mono);text-align:right;">26.2</td><td style="font-family:var(--font-mono);text-align:right;">40.7</td></tr>
+            </tbody>
+        </table>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.3rem,0.6vh,0.5rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">RF=3 hot-row collapses to <strong>43 TPS</strong> (2PC + serializable retries, p95 = 1.8 s) &mdash; 40&times; slower than Postgres. RF=1 hot-row <strong style="color:var(--sage);">matches Postgres at 1,757 TPS</strong> with three independent rows, one per shard, zero coordination. INSERT and COPY still lag: the bottleneck is CRDB&rsquo;s SQL layer, not Raft (removing Raft only bought +19% on INSERT). On production hardware with separate disks, the INSERT/COPY gap narrows; the hot-row story stays.</span>
+        </div>
+    </div>
+    <span class="slide-num">06 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 6 · THE PIVOT ────────────────────────── -->
+<section class="slide" id="slide-pivot">
+    <div class="geo-accent geo-circle" style="bottom:15%;left:8%;opacity:0.5;"></div>
+    <div class="slide-content" style="max-width:min(90vw,800px);margin:0 auto;align-items:center;text-align:center;">
+        <div class="reveal label" style="margin-bottom:clamp(1rem,3vh,2.5rem);">The real question</div>
+        <div class="big-question reveal" style="text-align:center;">What if the workload isn&rsquo;t &ldquo;insert one row fast&rdquo;&hellip;<br>but <em>&ldquo;scan tens of millions of rows and answer a question?&rdquo;</em></div>
+        <p class="subtitle reveal" style="text-align:center;margin-top:clamp(0.8rem,1.5vh,1.2rem);max-width:600px;">Same hardware. Completely different bottleneck profile. Let&rsquo;s feel the difference.</p>
+    </div>
+    <span class="slide-num">07 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 6 · DEMO: THE VISCERAL GAP ───────────── -->
+<section class="slide" id="slide-demo-gap" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,800px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Live demo &middot; benchmark_queries.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">11M rows. One <em style="color:var(--warm);">question.</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:560px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL &mdash; identical in both engines</span></div>
+            <div class="code-body"><span class="k">SELECT</span> <span class="fn">COUNT</span>(*), <span class="fn">AVG</span>(fare_amount),
+       <span class="fn">AVG</span>(tip_amount), <span class="fn">AVG</span>(trip_distance)
+<span class="k">FROM</span> trips;</div>
+        </div>
+        <div class="two-col reveal" style="margin-top:clamp(0.8rem,1.5vh,1.2rem);flex:unset;gap:clamp(0.5rem,1.5vw,1rem);">
+            <div class="col" style="align-items:center;">
+                <span class="col-label" style="color:var(--terracotta);">Postgres (4 CPU / 8 GB container)</span>
+                <p style="font-family:var(--font-mono);font-size:clamp(1.2rem,2.5vw,1.8rem);color:var(--terracotta);font-weight:700;">1.21 seconds</p>
+            </div>
+            <div class="col" style="align-items:center;">
+                <span class="col-label" style="color:var(--sage);">DuckDB (4 CPU / 8 GB container)</span>
+                <p style="font-family:var(--font-mono);font-size:clamp(1.2rem,2.5vw,1.8rem);color:var(--sage);font-weight:700;">0.096 seconds</p>
+            </div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Same cage. <strong style="color:var(--warm);">10&times;+ faster.</strong> At 128M rows, the gap widens to <strong style="color:var(--sage);">100&times;+</strong>.</p>
+        <p class="reveal" style="font-family:var(--font-mono);font-size:clamp(0.45rem,0.7vw,0.58rem);color:rgba(255,255,255,0.2);margin-top:clamp(0.5rem,1vh,0.8rem);">Data: NYC TLC Yellow Taxi Trip Records &nbsp;&mdash;&nbsp; <span style="color:rgba(255,255,255,0.35);">nyc.gov/tlc</span> &nbsp;&middot;&nbsp; Q1 2025 &nbsp;&middot;&nbsp; <a href="https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2025-01.parquet" style="color:rgba(255,255,255,0.25);text-decoration:none;">d37ci6vzurychx.cloudfront.net/trip-data/</a></p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">08 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 7 · BIG QUESTION ─────────────────────── -->
+<section class="slide" id="slide-how">
+    <div class="geo-accent geo-dot" style="top:20%;right:15%;"></div>
+    <div class="slide-content" style="max-width:min(90vw,800px);margin:0 auto;align-items:center;text-align:center;">
+        <div class="reveal label" style="margin-bottom:clamp(1rem,3vh,2.5rem);">The architecture question</div>
+        <div class="big-question reveal" style="text-align:center;">Same CPU. Same RAM. Same disk.<br>How can anything be <em>10&times;+ faster?</em></div>
+        <p class="subtitle reveal" style="text-align:center;margin-top:clamp(0.8rem,1.5vh,1.2rem);max-width:600px;">It&rsquo;s not magic. It&rsquo;s a different physical layout for a different access pattern.</p>
+    </div>
+    <span class="slide-num">09 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 8 · ROW STORE LAYOUT ─────────────────── -->
+<section class="slide" id="slide-row-layout">
+    <div class="margin-def reveal" style="top:25%;">
+        <strong>Heap tuple</strong>
+        A complete row stored on an 8 KB page. All columns packed together, sequentially.
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Physical layout</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Row store: <em>Postgres</em></h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">Data is laid out as heap tuples. Each 8 KB page contains complete rows &mdash; all 20 columns packed together.</p>
+        <svg class="reveal" viewBox="0 0 680 220" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:min(90vw,700px);height:auto;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <style>
+                .pg-label { font-family: var(--font-mono); font-size: 9px; fill: var(--charcoal); font-weight: 700; }
+                .pg-sublabel { font-family: var(--font-mono); font-size: 6.5px; fill: var(--text-muted); }
+                .pg-cell-label { font-family: var(--font-mono); font-size: 6px; fill: #fff; text-anchor: middle; }
+                .pg-cell-needed { fill: var(--warm); }
+                .pg-cell-wasted { fill: #c4c0b8; }
+                .pg-row-label { font-family: var(--font-mono); font-size: 7px; fill: var(--text-secondary); font-weight: 600; }
+                .pg-page-box { fill: var(--cream-dark); stroke: var(--charcoal); stroke-width: 1.2; rx: 4; }
+                .pg-page-header { fill: rgba(0,0,0,0.06); }
+                .pg-brace { fill: none; stroke: var(--warm); stroke-width: 1.2; }
+                .pg-brace-label { font-family: var(--font-body); font-size: 7px; fill: var(--warm); font-weight: 600; }
+                .pg-arrow-label { font-family: var(--font-body); font-size: 7.5px; fill: var(--terracotta); font-weight: 600; }
+            </style>
+
+            <!-- Page 1 -->
+            <rect class="pg-page-box" x="10" y="10" width="310" height="185"/>
+            <rect class="pg-page-header" x="10" y="10" width="310" height="18" rx="4"/>
+            <text class="pg-label" x="165" y="22" text-anchor="middle">Page 1 (8 KB)</text>
+
+            <!-- Row 1 -->
+            <text class="pg-row-label" x="18" y="46">Row 1</text>
+            <rect class="pg-cell-wasted" x="52" y="35" width="28" height="16" rx="2"/><text class="pg-cell-label" x="66" y="46">vendor</text>
+            <rect class="pg-cell-needed" x="82" y="35" width="30" height="16" rx="2"/><text class="pg-cell-label" x="97" y="46">pickup</text>
+            <rect class="pg-cell-wasted" x="114" y="35" width="32" height="16" rx="2"/><text class="pg-cell-label" x="130" y="46">dropoff</text>
+            <rect class="pg-cell-wasted" x="148" y="35" width="22" height="16" rx="2"/><text class="pg-cell-label" x="159" y="46">pax</text>
+            <rect class="pg-cell-wasted" x="172" y="35" width="24" height="16" rx="2"/><text class="pg-cell-label" x="184" y="46">dist</text>
+            <rect class="pg-cell-needed" x="198" y="35" width="24" height="16" rx="2"/><text class="pg-cell-label" x="210" y="46">fare</text>
+            <rect class="pg-cell-needed" x="224" y="35" width="20" height="16" rx="2"/><text class="pg-cell-label" x="234" y="46">tip</text>
+            <rect class="pg-cell-wasted" x="246" y="35" width="22" height="16" rx="2"/><text class="pg-cell-label" x="257" y="46">tolls</text>
+            <rect class="pg-cell-wasted" x="270" y="35" width="22" height="16" rx="2"/><text class="pg-cell-label" x="281" y="46">total</text>
+            <rect class="pg-cell-wasted" x="294" y="35" width="18" height="16" rx="2"/><text class="pg-cell-label" x="303" y="46">...</text>
+
+            <!-- Row 2 -->
+            <text class="pg-row-label" x="18" y="72">Row 2</text>
+            <rect class="pg-cell-wasted" x="52" y="61" width="28" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="82" y="61" width="30" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="114" y="61" width="32" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="148" y="61" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="172" y="61" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="198" y="61" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="224" y="61" width="20" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="246" y="61" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="270" y="61" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="294" y="61" width="18" height="16" rx="2"/>
+
+            <!-- Row 3 -->
+            <text class="pg-row-label" x="18" y="98">Row 3</text>
+            <rect class="pg-cell-wasted" x="52" y="87" width="28" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="82" y="87" width="30" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="114" y="87" width="32" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="148" y="87" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="172" y="87" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="198" y="87" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="224" y="87" width="20" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="246" y="87" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="270" y="87" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="294" y="87" width="18" height="16" rx="2"/>
+
+            <!-- Ellipsis rows -->
+            <text class="pg-sublabel" x="165" y="120" text-anchor="middle">&middot;&middot;&middot; more rows &middot;&middot;&middot;</text>
+
+            <!-- Legend inside page -->
+            <rect class="pg-cell-needed" x="60" y="132" width="10" height="10" rx="2"/>
+            <text class="pg-sublabel" x="74" y="141">needed (3 cols)</text>
+            <rect class="pg-cell-wasted" x="155" y="132" width="10" height="10" rx="2"/>
+            <text class="pg-sublabel" x="169" y="141">read but wasted (17 cols)</text>
+
+            <!-- Waste annotation -->
+            <text class="pg-arrow-label" x="165" y="168" text-anchor="middle">Postgres reads the entire page &mdash; all 20 columns per row</text>
+            <line x1="30" y1="175" x2="300" y2="175" stroke="var(--terracotta)" stroke-width="1" stroke-dasharray="3 2"/>
+
+            <!-- Page 2 -->
+            <rect class="pg-page-box" x="350" y="10" width="310" height="185"/>
+            <rect class="pg-page-header" x="350" y="10" width="310" height="18" rx="4"/>
+            <text class="pg-label" x="505" y="22" text-anchor="middle">Page 2 (8 KB)</text>
+
+            <!-- Row 4 -->
+            <text class="pg-row-label" x="358" y="46">Row 4</text>
+            <rect class="pg-cell-wasted" x="392" y="35" width="28" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="422" y="35" width="30" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="454" y="35" width="32" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="488" y="35" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="512" y="35" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="538" y="35" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="564" y="35" width="20" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="586" y="35" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="610" y="35" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="634" y="35" width="18" height="16" rx="2"/>
+
+            <!-- Row 5 -->
+            <text class="pg-row-label" x="358" y="72">Row 5</text>
+            <rect class="pg-cell-wasted" x="392" y="61" width="28" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="422" y="61" width="30" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="454" y="61" width="32" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="488" y="61" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="512" y="61" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="538" y="61" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="564" y="61" width="20" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="586" y="61" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="610" y="61" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="634" y="61" width="18" height="16" rx="2"/>
+
+            <!-- Row 6 -->
+            <text class="pg-row-label" x="358" y="98">Row 6</text>
+            <rect class="pg-cell-wasted" x="392" y="87" width="28" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="422" y="87" width="30" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="454" y="87" width="32" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="488" y="87" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="512" y="87" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="538" y="87" width="24" height="16" rx="2"/>
+            <rect class="pg-cell-needed" x="564" y="87" width="20" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="586" y="87" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="610" y="87" width="22" height="16" rx="2"/>
+            <rect class="pg-cell-wasted" x="634" y="87" width="18" height="16" rx="2"/>
+
+            <text class="pg-sublabel" x="505" y="120" text-anchor="middle">&middot;&middot;&middot; more rows &middot;&middot;&middot;</text>
+            <text class="pg-arrow-label" x="505" y="168" text-anchor="middle">Every page must be read, even for 3 columns</text>
+            <line x1="370" y1="175" x2="640" y2="175" stroke="var(--terracotta)" stroke-width="1" stroke-dasharray="3 2"/>
+
+            <!-- Bottom summary -->
+            <text style="font-family:var(--font-body);font-size:9px;fill:var(--charcoal);font-weight:600;" x="340" y="205" text-anchor="middle">Query: SELECT AVG(fare), AVG(tip), AVG(distance) FROM trips &mdash; needs 3 of 20 columns</text>
+        </svg>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">To compute <code>AVG(fare_amount)</code>, Postgres reads <strong>every page</strong> &mdash; all 20 columns &mdash; then extracts the one field it needs. Need 3 of 20? You&rsquo;re reading <strong>~7&times; more data than necessary.</strong></span>
+        </div>
+    </div>
+    <span class="slide-num">10 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 9 · COLUMN STORE LAYOUT ──────────────── -->
+<section class="slide" id="slide-col-layout">
+    <div class="margin-def reveal" style="top:25%;">
+        <strong>Row group</strong>
+        A batch of rows (typically 100K&ndash;1M) stored together. Each column within a row group is stored as a contiguous segment.
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Physical layout</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Column store: <em>DuckDB</em></h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">Each column is stored contiguously. All 11M <code>fare_amount</code> values packed together, all <code>pickup_datetime</code> values together.</p>
+        <svg class="reveal" viewBox="0 0 680 200" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:min(90vw,700px);height:auto;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <style>
+                .col-seg-read { fill: var(--sage); rx: 2; }
+                .col-seg-skip { fill: #ddd8d0; rx: 2; }
+                .col-lbl { font-family: var(--font-mono); font-size: 7px; fill: var(--charcoal); text-anchor: middle; font-weight: 600; }
+                .col-val { font-family: var(--font-mono); font-size: 6px; fill: #fff; text-anchor: middle; }
+                .col-val-skip { font-family: var(--font-mono); font-size: 6px; fill: var(--text-muted); text-anchor: middle; }
+                .col-note { font-family: var(--font-body); font-size: 8px; fill: var(--text-secondary); text-anchor: middle; }
+                .col-action { font-family: var(--font-mono); font-size: 7px; font-weight: 700; text-anchor: middle; }
+            </style>
+
+            <!-- Column headers -->
+            <text class="col-lbl" x="50" y="14">vendor</text>
+            <text class="col-lbl" x="100" y="14" style="fill:var(--sage);">pickup</text>
+            <text class="col-lbl" x="155" y="14">dropoff</text>
+            <text class="col-lbl" x="205" y="14">pax</text>
+            <text class="col-lbl" x="250" y="14">dist</text>
+            <text class="col-lbl" x="300" y="14" style="fill:var(--sage);">fare</text>
+            <text class="col-lbl" x="345" y="14" style="fill:var(--sage);">tip</text>
+            <text class="col-lbl" x="390" y="14">tolls</text>
+            <text class="col-lbl" x="435" y="14">total</text>
+            <text class="col-lbl" x="480" y="14">surcharge</text>
+            <text class="col-lbl" x="530" y="14">airport</text>
+            <text class="col-lbl" x="575" y="14">rate</text>
+            <text class="col-lbl" x="620" y="14">pay_type</text>
+
+            <!-- 13 column segments as vertical strips (rows of values stacked) -->
+            <!-- Skipped columns -->
+            <rect class="col-seg-skip" x="30" y="22" width="40" height="120"/>
+            <text class="col-val-skip" x="50" y="42">1</text><text class="col-val-skip" x="50" y="58">2</text><text class="col-val-skip" x="50" y="74">1</text><text class="col-val-skip" x="50" y="90">2</text><text class="col-val-skip" x="50" y="106">1</text><text class="col-val-skip" x="50" y="125">...</text>
+
+            <!-- READ: pickup -->
+            <rect class="col-seg-read" x="78" y="22" width="44" height="120"/>
+            <text class="col-val" x="100" y="42">Jan 15</text><text class="col-val" x="100" y="58">Jan 15</text><text class="col-val" x="100" y="74">Jan 15</text><text class="col-val" x="100" y="90">Jan 16</text><text class="col-val" x="100" y="106">Jan 16</text><text class="col-val" x="100" y="125">...</text>
+
+            <!-- Skipped -->
+            <rect class="col-seg-skip" x="130" y="22" width="48" height="120"/>
+            <text class="col-val-skip" x="155" y="74">...</text>
+            <rect class="col-seg-skip" x="185" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="205" y="74">...</text>
+            <rect class="col-seg-skip" x="230" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="250" y="74">...</text>
+
+            <!-- READ: fare -->
+            <rect class="col-seg-read" x="276" y="22" width="44" height="120"/>
+            <text class="col-val" x="300" y="42">12.50</text><text class="col-val" x="300" y="58">8.00</text><text class="col-val" x="300" y="74">24.75</text><text class="col-val" x="300" y="90">15.00</text><text class="col-val" x="300" y="106">9.50</text><text class="col-val" x="300" y="125">...</text>
+
+            <!-- READ: tip -->
+            <rect class="col-seg-read" x="326" y="22" width="38" height="120"/>
+            <text class="col-val" x="345" y="42">2.50</text><text class="col-val" x="345" y="58">0.00</text><text class="col-val" x="345" y="74">5.00</text><text class="col-val" x="345" y="90">3.00</text><text class="col-val" x="345" y="106">1.50</text><text class="col-val" x="345" y="125">...</text>
+
+            <!-- Skipped columns -->
+            <rect class="col-seg-skip" x="370" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="390" y="74">...</text>
+            <rect class="col-seg-skip" x="415" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="435" y="74">...</text>
+            <rect class="col-seg-skip" x="460" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="480" y="74">...</text>
+            <rect class="col-seg-skip" x="508" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="528" y="74">...</text>
+            <rect class="col-seg-skip" x="553" y="22" width="38" height="120"/>
+            <text class="col-val-skip" x="575" y="74">...</text>
+            <rect class="col-seg-skip" x="598" y="22" width="44" height="120"/>
+            <text class="col-val-skip" x="620" y="74">...</text>
+
+            <!-- Action labels below -->
+            <text class="col-action" x="50" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="100" y="155" style="fill:var(--sage);">READ</text>
+            <text class="col-action" x="155" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="205" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="250" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="300" y="155" style="fill:var(--sage);">READ</text>
+            <text class="col-action" x="345" y="155" style="fill:var(--sage);">READ</text>
+            <text class="col-action" x="390" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="435" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="480" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="528" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="575" y="155" style="fill:var(--text-muted);">SKIP</text>
+            <text class="col-action" x="620" y="155" style="fill:var(--text-muted);">SKIP</text>
+
+            <!-- Summary -->
+            <rect x="180" y="170" width="300" height="22" fill="var(--sage-dim)" rx="3" stroke="var(--sage)" stroke-width="0.8"/>
+            <text style="font-family:var(--font-body);font-size:9px;fill:var(--sage);font-weight:600;" x="330" y="185" text-anchor="middle">Read 3 columns. Skip 17. Disk I/O reduced ~7&times;.</text>
+        </svg>
+        <div class="callout callout-win reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+            <span class="callout-text">Need 3 of 20 columns? Read <strong>only those 3</strong>. The other 17 are never loaded from disk. That&rsquo;s the I/O reduction right there.</span>
+        </div>
+    </div>
+    <span class="slide-num">11 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 11 · NAPKIN CALC ─────────────────────── -->
+<section class="slide" id="slide-napkin">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--gold);border-color:var(--gold);">The math</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Napkin <em>calculation</em></h2>
+        <table class="latency-table reveal" style="max-width:700px;margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <thead><tr><th></th><th style="text-align:right;">Row store (Postgres)</th><th style="text-align:right;">Column store (DuckDB)</th></tr></thead>
+            <tbody>
+                <tr><td>Data read from disk (11M rows)</td><td style="font-family:var(--font-mono);text-align:right;color:var(--terracotta);">~1.5 GB (all 20 cols)</td><td style="font-family:var(--font-mono);text-align:right;color:var(--sage);">~30 MB (3 cols, compressed)</td></tr>
+                <tr><td>NVMe bandwidth (3 GB/s)</td><td style="font-family:var(--font-mono);text-align:right;">~0.5 s I/O</td><td style="font-family:var(--font-mono);text-align:right;">~0.01 s I/O</td></tr>
+                <tr><td>+ execution overhead</td><td style="font-family:var(--font-mono);text-align:right;">~0.7 s (tuple-at-a-time)</td><td style="font-family:var(--font-mono);text-align:right;">~0.09 s (vectorized)</td></tr>
+                <tr class="row-hot"><td>Measured wall clock</td><td style="font-family:var(--font-mono);text-align:right;color:var(--terracotta);font-weight:700;">1.21 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--sage);font-weight:700;">0.096 s</td></tr>
+                <tr class="row-hot"><td>Ratio</td><td colspan="2" style="font-family:var(--font-mono);text-align:right;color:var(--warm);font-weight:700;">13&times; at 11M &mdash; scales to 100&times;+ at 128M</td></tr>
+            </tbody>
+        </table>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">This is <strong>before</strong> any execution engine optimizations. The layout alone explains most of the gap. Now add vectorized execution on top&hellip;</span>
+        </div>
+    </div>
+    <span class="slide-num">12 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 16 · SETUP: OPENCODE + ENVIRONMENT ────── -->
+<section class="slide" id="slide-setup" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,800px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Setup &middot; your AI-assisted workflow</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.6rem,4vw,2.8rem);">Tools for <em style="color:var(--dusty-blue);">today</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.8rem,1.5vh,1.2rem);flex:unset;gap:clamp(0.5rem,1.5vw,1rem);">
+            <div class="col">
+                <div class="code-block" style="flex:unset;">
+                    <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">opencode (AI assistant)</span></div>
+                    <div class="code-body" style="font-size:clamp(0.45rem,0.7vw,0.58rem);"><span class="c"># Install opencode (free tokens included)</span>
+<span class="v">$</span> curl -fsSL https://opencode.ai/install | sh
+
+<span class="c"># Launch in your project directory</span>
+<span class="v">$</span> cd src-lesson3
+<span class="v">$</span> opencode</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="code-block" style="flex:unset;">
+                    <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">stack &mdash; both engines containerized</span></div>
+                    <div class="code-body" style="font-size:clamp(0.45rem,0.7vw,0.58rem);"><span class="c"># Postgres + CockroachDB + DuckDB,</span>
+<span class="c"># all capped at 4 CPU / 8 GB.</span>
+<span class="v">$</span> docker compose up -d
+
+<span class="c"># Run scripts inside the duckdb container:</span>
+<span class="v">$</span> ./bench python src/benchmark_queries.py</div>
+                </div>
+            </div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">DuckDB lives in a container today <strong style="color:rgba(255,255,255,0.8);">only</strong> so the head-to-head is fair. Normally it&rsquo;s a Python library. We&rsquo;ll lift the cage at the end &mdash; expect another speedup.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">13 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 17 · QUERY 1: FULL AGGREGATION ─────────── -->
+<section class="slide" id="slide-q1">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Query 1 &middot; full aggregation</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">I/O bound: <em>all rows, few columns</em></h2>
+        <div class="prompt-block reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <div class="prompt-label">opencode prompt</div>
+            <div class="prompt-text">&ldquo;Run this query in both Postgres and DuckDB. Time each one. Show me how many bytes each engine read.&rdquo;</div>
+        </div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:560px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL</span></div>
+            <div class="code-body"><span class="k">SELECT</span> <span class="fn">COUNT</span>(*), <span class="fn">AVG</span>(fare_amount),
+       <span class="fn">AVG</span>(tip_amount), <span class="fn">AVG</span>(trip_distance)
+<span class="k">FROM</span> trips;</div>
+        </div>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">Touches 3 columns out of 20. Postgres reads everything; DuckDB reads only what it needs. Measured on 11M rows: <strong>13&times;</strong> (PG 1.21s, DuckDB 0.096s). Stretches to <strong>100&times;+</strong> at 128M.</span>
+        </div>
+    </div>
+    <span class="slide-num">14 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 10 · COMPRESSION ─────────────────────── -->
+<section class="slide" id="slide-compression">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Columnar advantage #2</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Compression: same type = <em>compressible</em></h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">Contiguous values of the same type compress dramatically. Typical ratios: 5&ndash;10&times;.</p>
+        <div class="two-col reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--dusty-blue);">Technique</span>
+                <ul class="bullets">
+                    <li><strong>Dictionary encoding:</strong> <code>payment_type</code> has 4 values &rarr; 2-bit code per row</li>
+                    <li><strong>Delta encoding:</strong> sequential timestamps &rarr; store differences only</li>
+                    <li><strong>Run-length (RLE):</strong> &ldquo;1 repeated 847 times, 2 repeated 31 times&rdquo;</li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">Why rows can&rsquo;t do this</span>
+                <ul class="bullets">
+                    <li>A row mixes types: int, timestamp, varchar, numeric&hellip;</li>
+                    <li>Adjacent rows have no type locality</li>
+                    <li>Generic compression (LZ4, zstd) helps ~2&times;, not 10&times;</li>
+                </ul>
+            </div>
+        </div>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">On our 11M-row workshop dataset: 3 columns out of 20 might be ~180 MB uncompressed &rarr; <strong>~30 MB on disk</strong> after columnar compression. Postgres reads ~1.5 GB for the same answer.</span>
+        </div>
+    </div>
+    <span class="slide-num">15 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 13 · ZONE MAPS ───────────────────────── -->
+<section class="slide" id="slide-zonemaps">
+    <div class="margin-def reveal" style="top:28%;">
+        <strong>Zone map</strong>
+        Min/max metadata per column per row group. Checked before reading any data. Also called &ldquo;data skipping&rdquo; or &ldquo;segment elimination.&rdquo;
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Columnar advantage #4</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Zone maps: <em>skip before reading</em></h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">Each row group stores lightweight metadata: min, max, null count per column.</p>
+        <svg class="reveal" viewBox="0 0 620 200" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:min(90vw,640px);height:auto;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <style>
+                .zm-rg { rx: 4; stroke-width: 1.2; }
+                .zm-skip { fill: rgba(0,0,0,0.04); stroke: var(--rule); }
+                .zm-scan { fill: var(--sage-dim); stroke: var(--sage); stroke-width: 1.5; }
+                .zm-lbl { font-family: var(--font-mono); font-size: 7.5px; fill: var(--charcoal); font-weight: 600; }
+                .zm-meta { font-family: var(--font-mono); font-size: 6.5px; fill: var(--text-secondary); }
+                .zm-status { font-family: var(--font-mono); font-size: 7px; font-weight: 700; }
+                .zm-query { font-family: var(--font-mono); font-size: 8px; fill: var(--charcoal); }
+            </style>
+
+            <!-- Query label -->
+            <text class="zm-query" x="10" y="14">WHERE pickup_datetime &gt;= <tspan style="fill:var(--sage);font-weight:700;">'2023-06-01'</tspan> AND &lt; <tspan style="fill:var(--sage);font-weight:700;">'2023-09-01'</tspan></text>
+
+            <!-- Filter window (background highlight) -->
+            <rect x="230" y="25" width="195" height="160" fill="rgba(90,122,94,0.06)" rx="6" stroke="var(--sage)" stroke-width="1" stroke-dasharray="5 3"/>
+            <text style="font-family:var(--font-body);font-size:6.5px;fill:var(--sage);font-weight:600;" x="328" y="36" text-anchor="middle">filter window</text>
+
+            <!-- Row Group 1 — SKIP -->
+            <rect class="zm-rg zm-skip" x="20" y="45" width="180" height="32"/>
+            <text class="zm-lbl" x="30" y="65">RG 1</text>
+            <text class="zm-meta" x="65" y="57">min: 2023-01-02</text>
+            <text class="zm-meta" x="65" y="69">max: 2023-03-28</text>
+            <text class="zm-status" x="175" y="65" style="fill:var(--text-muted);">SKIP &times;</text>
+
+            <!-- Row Group 2 — SCAN (partial overlap) -->
+            <rect class="zm-rg zm-scan" x="20" y="85" width="180" height="32"/>
+            <text class="zm-lbl" x="30" y="105">RG 2</text>
+            <text class="zm-meta" x="65" y="97">min: 2023-03-28</text>
+            <text class="zm-meta" x="65" y="109">max: 2023-06-15</text>
+            <text class="zm-status" x="175" y="105" style="fill:var(--sage);">SCAN &#10003;</text>
+
+            <!-- Row Group 3 — SCAN (full overlap) -->
+            <rect class="zm-rg zm-scan" x="20" y="125" width="180" height="32"/>
+            <text class="zm-lbl" x="30" y="145">RG 3</text>
+            <text class="zm-meta" x="65" y="137">min: 2023-06-15</text>
+            <text class="zm-meta" x="65" y="149">max: 2023-09-02</text>
+            <text class="zm-status" x="175" y="145" style="fill:var(--sage);">SCAN &#10003;</text>
+
+            <!-- Row Group 4 — SKIP -->
+            <rect class="zm-rg zm-skip" x="20" y="165" width="180" height="32"/>
+            <text class="zm-lbl" x="30" y="185">RG 4</text>
+            <text class="zm-meta" x="65" y="177">min: 2023-09-02</text>
+            <text class="zm-meta" x="65" y="189">max: 2023-12-31</text>
+            <text class="zm-status" x="175" y="185" style="fill:var(--text-muted);">SKIP &times;</text>
+
+            <!-- Timeline on the right showing the filter range -->
+            <line x1="430" y1="45" x2="430" y2="197" stroke="var(--rule)" stroke-width="1"/>
+            <!-- Month ticks -->
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--text-muted);" x="440" y="50">Jan</text>
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--text-muted);" x="440" y="80">Mar</text>
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--sage);font-weight:700;" x="440" y="108">Jun</text>
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--sage);font-weight:700;" x="440" y="140">Sep</text>
+            <text style="font-family:var(--font-mono);font-size:6px;fill:var(--text-muted);" x="440" y="170">Dec</text>
+            <!-- Highlight bar for Jun-Sep -->
+            <rect x="436" y="100" width="4" height="42" fill="var(--sage)" rx="2"/>
+
+            <!-- Result summary -->
+            <rect x="470" y="90" width="140" height="50" fill="var(--cream-dark)" rx="4" stroke="var(--rule)" stroke-width="1"/>
+            <text style="font-family:var(--font-body);font-size:8px;fill:var(--charcoal);font-weight:700;" x="540" y="108" text-anchor="middle">Read 2 of 4 row groups</text>
+            <text style="font-family:var(--font-body);font-size:7.5px;fill:var(--sage);font-weight:600;" x="540" y="124" text-anchor="middle">50% I/O eliminated</text>
+            <text style="font-family:var(--font-body);font-size:6.5px;fill:var(--text-muted);" x="540" y="136" text-anchor="middle">before reading any data</text>
+        </svg>
+        <div class="callout callout-win reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+            <span class="callout-text">Zone maps cost <strong>nothing at write time</strong> &mdash; just a few bytes of metadata. Compare to Postgres B-tree indexes, which must be maintained on every INSERT. Column stores optimize reads at zero write cost.</span>
+        </div>
+    </div>
+    <span class="slide-num">16 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 18 · QUERY 2: FILTERED AGGREGATION ────── -->
+<section class="slide" id="slide-q2">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Query 2 &middot; filtered aggregation</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Zone maps in <em>action</em></h2>
+        <div class="prompt-block reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <div class="prompt-label">opencode prompt</div>
+            <div class="prompt-text">&ldquo;Run this query in both Postgres and DuckDB. Time each. Then run EXPLAIN ANALYZE in DuckDB &mdash; how many row groups were scanned vs. skipped?&rdquo;</div>
+        </div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:600px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell &mdash; benchmark_queries.py</span></div>
+            <div class="code-body"><span class="v">$</span> ./bench python src/benchmark_queries.py --query 2</div>
+        </div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:600px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL</span></div>
+            <div class="code-body"><span class="k">SELECT</span> <span class="fn">DATE_TRUNC</span>(<span class="s">'month'</span>, pickup_datetime) <span class="k">AS</span> month,
+       payment_type,
+       <span class="fn">COUNT</span>(*) <span class="k">AS</span> trips,
+       <span class="fn">AVG</span>(fare_amount) <span class="k">AS</span> avg_fare,
+       <span class="fn">SUM</span>(tip_amount) <span class="k">AS</span> total_tips
+<span class="k">FROM</span> trips
+<span class="k">WHERE</span> pickup_datetime >= <span class="s">'2025-02-01'</span>
+  <span class="k">AND</span> pickup_datetime &lt; <span class="s">'2025-03-01'</span>
+<span class="k">GROUP BY</span> month, payment_type
+<span class="k">ORDER BY</span> month, payment_type;</div>
+        </div>
+        <div class="callout callout-win reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+            <span class="callout-text">Data is roughly time-ordered in the Parquet files. DuckDB&rsquo;s zone maps skip row groups outside the date range. Postgres does a <strong>full sequential scan</strong> &mdash; no zone maps exist in a heap. Measured: <strong>23&times;</strong> (PG 1.91s, DuckDB 0.085s).</span>
+        </div>
+    </div>
+    <span class="slide-num">17 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 19 · QUERY 3: HIGH-CARDINALITY GROUP BY ── -->
+<section class="slide" id="slide-q3">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Query 3 &middot; high-cardinality GROUP BY</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Hash table <em>pressure</em></h2>
+        <div class="prompt-block reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <div class="prompt-label">opencode prompt</div>
+            <div class="prompt-text">&ldquo;Run this GROUP BY in both engines. In DuckDB&rsquo;s EXPLAIN ANALYZE, find the hash aggregation step &mdash; what batch size does it process at once?&rdquo;</div>
+        </div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:600px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell &mdash; benchmark_queries.py</span></div>
+            <div class="code-body"><span class="v">$</span> ./bench python src/benchmark_queries.py --query 3</div>
+        </div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:560px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL</span></div>
+            <div class="code-body"><span class="k">SELECT</span> pickup_location_id, dropoff_location_id,
+       <span class="fn">COUNT</span>(*) <span class="k">AS</span> trips,
+       <span class="fn">AVG</span>(fare_amount) <span class="k">AS</span> avg_fare
+<span class="k">FROM</span> trips
+<span class="k">GROUP BY</span> pickup_location_id, dropoff_location_id
+<span class="k">ORDER BY</span> trips <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="g">20</span>;</div>
+        </div>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">~260 &times; 260 = ~67k groups. Both engines handle this, but DuckDB&rsquo;s vectorized hash aggregation processes batches through the hash table instead of one row at a time. Measured: <strong>15&times;</strong> (PG 1.03s, DuckDB 0.068s).</span>
+        </div>
+    </div>
+    <span class="slide-num">18 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 12 · VECTORIZED EXECUTION ────────────── -->
+<section class="slide" id="slide-vectorized">
+    <div class="margin-def reveal" style="top:28%;">
+        <strong>SIMD</strong>
+        Single Instruction, Multiple Data &mdash; CPU processes 4&ndash;8 values per cycle (AVX2).
+    </div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Columnar advantage #3</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Vectorized <em>execution</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--terracotta);">Postgres: tuple-at-a-time</span>
+                <ul class="bullets">
+                    <li>Each operator processes <strong>one row</strong></li>
+                    <li>Passes it up to the next operator</li>
+                    <li>11M rows = 11M function calls per operator</li>
+                    <li>Branch prediction thrashes</li>
+                    <li>CPU caches useless</li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">DuckDB: vectorized (batches of 2048)</span>
+                <ul class="bullets">
+                    <li>Operators process <strong>2048 values</strong> at once</li>
+                    <li>Tight loop, no per-row function calls</li>
+                    <li>Data is contiguous &rarr; CPU prefetcher works</li>
+                    <li>Compiler auto-vectorizes &rarr; SIMD</li>
+                    <li>5&ndash;10&times; CPU efficiency gain</li>
+                </ul>
+            </div>
+        </div>
+        <div class="formula-box reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <div class="formula">Total speedup &asymp; <span class="accent">I/O reduction</span> (10&ndash;60&times;) &times; <span class="accent">CPU efficiency</span> (5&ndash;10&times;) = 50&ndash;100&times;</div>
+        </div>
+    </div>
+    <span class="slide-num">19 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 23 · HOUR DIVIDER ────────────────────── -->
+<section class="slide hour-divider" id="slide-hour3" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,750px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Advantages covered</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Where do column stores <em style="color:var(--terracotta);">break?</em></h2>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.45);margin-top:clamp(0.8rem,1.5vh,1.2rem);">Every layout has a weakness. Let&rsquo;s find DuckDB&rsquo;s.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">20 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 14 · WHY COLUMN STORES CAN'T DO OLTP ── -->
+<section class="slide" id="slide-olap-cant-oltp">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--terracotta);border-color:var(--terracotta);">The trade-off</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Why column stores are <em>terrible</em> at OLTP</h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li><strong>Insert one row:</strong> write to N separate column segments (one per column)</li>
+            <li><strong>Point lookup:</strong> no B-tree index; must scan zone maps, then decompress segments</li>
+            <li><strong>Update one value:</strong> decompress a compressed block, modify, recompress</li>
+            <li><strong>Write model:</strong> batch-append; rows accumulate in a buffer, then flush to columnar segments periodically</li>
+        </ul>
+        <div class="formula-box reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <div class="formula">OLTP optimizes for <span class="accent">random access to complete rows</span><br>OLAP optimizes for <span class="accent">sequential access to individual columns</span></div>
+        </div>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text"><strong>No single layout serves both.</strong> This tension drives the entire architecture of modern data systems &mdash; and it&rsquo;s why CDC (Lesson 5) and Kafka (Lesson 6) exist as bridges between the two worlds.</span>
+        </div>
+    </div>
+    <span class="slide-num">21 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 24 · POINT QUERIES: DUCKDB'S WEAKNESS ── -->
+<section class="slide" id="slide-point-query" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,800px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">Experiment A &middot; experiment_point_query.py</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Find <em style="color:var(--terracotta);">one row</em></h2>
+        <div class="code-block reveal" style="margin-top:clamp(1rem,2vh,1.5rem);max-width:560px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL &mdash; same in both</span></div>
+            <div class="code-body"><span class="k">SELECT</span> * <span class="k">FROM</span> trips
+<span class="k">WHERE</span> pickup_datetime = <span class="s">'2025-02-15 14:30:00'</span>;</div>
+        </div>
+        <div class="two-col reveal" style="margin-top:clamp(0.8rem,1.5vh,1.2rem);flex:unset;gap:clamp(0.5rem,1.5vw,1rem);">
+            <div class="col" style="align-items:center;">
+                <span class="col-label" style="color:var(--sage);">Postgres (with B-tree index)</span>
+                <p style="font-family:var(--font-mono);font-size:clamp(1rem,2vw,1.4rem);color:var(--sage);font-weight:700;">0.01 ms</p>
+            </div>
+            <div class="col" style="align-items:center;">
+                <span class="col-label" style="color:var(--terracotta);">DuckDB (scans parquet)</span>
+                <p style="font-family:var(--font-mono);font-size:clamp(1rem,2vw,1.4rem);color:var(--terracotta);font-weight:700;">9.8 ms</p>
+            </div>
+        </div>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.5);margin-top:clamp(0.6rem,1.2vh,0.9rem);">Postgres wins by <strong style="color:var(--sage);">685&times;</strong>. Column stores are <strong style="color:var(--terracotta);">not</strong> a replacement for row stores &mdash; they serve different access patterns.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">22 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 20 · QUERY 4: WINDOW FUNCTION ────────── -->
+<section class="slide" id="slide-q4">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Query 4 &middot; window function</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">CPU-bound: <em>rolling average</em></h2>
+        <div class="prompt-block reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <div class="prompt-label">opencode prompt</div>
+            <div class="prompt-text">&ldquo;Run the rolling average in both engines. The speedup is smaller here than in Q1&ndash;Q3 &mdash; why? Ask the AI to explain, then verify the answer against the actual EXPLAIN ANALYZE plan.&rdquo;</div>
+        </div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:600px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell &mdash; benchmark_queries.py</span></div>
+            <div class="code-body"><span class="v">$</span> ./bench python src/benchmark_queries.py --query 4</div>
+        </div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:600px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL</span></div>
+            <div class="code-body"><span class="k">SELECT</span> pickup_location_id, pickup_datetime, fare_amount,
+       <span class="fn">AVG</span>(fare_amount) <span class="k">OVER</span> (
+           <span class="k">PARTITION BY</span> pickup_location_id
+           <span class="k">ORDER BY</span> pickup_datetime
+           <span class="k">ROWS BETWEEN</span> <span class="g">100</span> <span class="k">PRECEDING AND CURRENT ROW</span>
+       ) <span class="k">AS</span> rolling_avg
+<span class="k">FROM</span> trips
+<span class="k">WHERE</span> pickup_location_id = <span class="g">132</span>  <span class="c">-- JFK Airport</span>
+<span class="k">ORDER BY</span> pickup_datetime;</div>
+        </div>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">Sorting, partitioning, rolling aggregates &mdash; CPU-intensive. This shows the vectorized execution advantage on <strong>pure compute</strong>, not just I/O. Measured: <strong>4&times;</strong> (PG 0.63s, DuckDB 0.175s). The smallest gap of the four queries &mdash; columnar can&rsquo;t escape the inherent CPU cost of a 100-row rolling window.</span>
+        </div>
+    </div>
+    <span class="slide-num">23 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 21 · EXPLAIN ANALYZE: THE DELIVERABLE ── -->
+<section class="slide" id="slide-explain">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--gold);border-color:var(--gold);">Deep dive</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">EXPLAIN ANALYZE: <em>the real deliverable</em></h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">&ldquo;DuckDB is faster&rdquo; is the observation. Understanding <strong>why</strong> is the deliverable.</p>
+        <div class="two-col reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">DuckDB</span>
+                <div class="code-block" style="flex:unset;">
+                    <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL</span></div>
+                    <div class="code-body" style="font-size:clamp(0.42rem,0.65vw,0.55rem);"><span class="k">EXPLAIN ANALYZE</span>
+<span class="k">SELECT</span> ...;</div>
+                </div>
+                <ul class="bullets" style="margin-top:0.3rem;">
+                    <li>Row groups scanned vs. skipped</li>
+                    <li>Batch size per operator</li>
+                    <li>Time per pipeline stage</li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--terracotta);">Postgres</span>
+                <div class="code-block" style="flex:unset;">
+                    <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL</span></div>
+                    <div class="code-body" style="font-size:clamp(0.42rem,0.65vw,0.55rem);"><span class="k">EXPLAIN</span> (<span class="k">ANALYZE</span>, <span class="k">BUFFERS</span>, <span class="k">FORMAT TEXT</span>)
+<span class="k">SELECT</span> ...;</div>
+                </div>
+                <ul class="bullets" style="margin-top:0.3rem;">
+                    <li>Buffers: shared hit + read (pages)</li>
+                    <li>Rows Removed by Filter</li>
+                    <li>Seq Scan vs. Index Scan</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">24 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 22 · EXPLAIN: WHAT TO LOOK FOR ──────── -->
+<section class="slide" id="slide-explain-what">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--gold);border-color:var(--gold);">Deep dive &middot; the bar</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Not acceptable vs. <em>acceptable</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--terracotta);">Not acceptable</span>
+                <p class="subtitle" style="margin-top:0.3rem;font-style:italic;">&ldquo;DuckDB is faster because it&rsquo;s a column store.&rdquo;</p>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">Acceptable</span>
+                <p class="subtitle" style="margin-top:0.3rem;font-style:italic;">&ldquo;DuckDB read 30 MB vs Postgres&rsquo;s 1.5 GB because it only scanned 3 of 20 columns, skipped 2 of 3 row groups via zone maps on pickup_datetime, and the remaining columns were dictionary-compressed with a 4&times; ratio.&rdquo;</p>
+            </div>
+        </div>
+        <div class="prompt-block reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <div class="prompt-label">opencode prompt</div>
+            <div class="prompt-text">&ldquo;Show me the EXPLAIN ANALYZE for Query 2 in DuckDB. How many row groups were scanned vs skipped? What compression was used on the pickup_datetime column?&rdquo;</div>
+        </div>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">The AI will give you an answer. <strong>Verify it against the actual plan output.</strong> If the numbers don&rsquo;t match, the AI is wrong and you need to correct it.</span>
+        </div>
+    </div>
+    <span class="slide-num">25 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 25 · COMPRESSION ANALYSIS ────────────── -->
+<section class="slide" id="slide-compression-exp">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Experiment B &middot; compression</div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:600px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell &mdash; DuckDB</span></div>
+            <div class="code-body"><span class="c">-- Inspect per-column compression</span>
+<span class="v">$</span> ./bench duckdb <span class="s">"CALL pragma_storage_info('trips');"</span></div>
+        </div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">What did DuckDB <em>actually</em> do?</h2>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:560px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">SQL &mdash; DuckDB storage inspection</span></div>
+            <div class="code-body"><span class="c">-- Create persistent DB to inspect storage</span>
+<span class="k">CREATE TABLE</span> trips <span class="k">AS</span>
+  <span class="k">SELECT</span> * <span class="k">FROM</span> <span class="s">'yellow_tripdata_2023-*.parquet'</span>;
+
+<span class="c">-- Inspect per-column compression</span>
+<span class="k">CALL</span> <span class="fn">pragma_storage_info</span>(<span class="s">'trips'</span>);</div>
+        </div>
+        <div class="prompt-block reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <div class="prompt-label">opencode prompt</div>
+            <div class="prompt-text">&ldquo;Run pragma_storage_info on the trips table. Which columns use dictionary encoding? Which use delta? Compare total DuckDB storage size vs. Postgres pg_total_relation_size.&rdquo;</div>
+        </div>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">Expect: <code>payment_type</code> &rarr; dictionary (4 values). <code>pickup_datetime</code> &rarr; delta or bitpacked. <code>fare_amount</code> &rarr; constant/dictionary for common values. The ratio illustrates compression from columnar layout alone.</span>
+        </div>
+    </div>
+    <span class="slide-num">26 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 26 · DATA ORDERING EXPERIMENT ────────── -->
+<section class="slide" id="slide-ordering">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--sage);border-color:var(--sage);">Experiment C &middot; data ordering</div>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:600px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell &mdash; experiment_ordering.py</span></div>
+            <div class="code-body"><span class="v">$</span> ./bench python src/experiment_ordering.py</div>
+        </div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Sort order makes zone maps <em>click</em></h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">Build two copies, run the same query across windows of increasing width.</p>
+        <table class="latency-table reveal" style="max-width:600px;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <thead><tr><th>Filter window</th><th style="text-align:right;">sorted</th><th style="text-align:right;">shuffled</th><th style="text-align:right;">ratio</th></tr></thead>
+            <tbody>
+                <tr><td>1 day</td><td style="font-family:var(--font-mono);text-align:right;">3.6 ms</td><td style="font-family:var(--font-mono);text-align:right;">8.7 ms</td><td style="font-family:var(--font-mono);text-align:right;color:var(--sage);font-weight:700;">2.4&times;</td></tr>
+                <tr><td>1 week</td><td style="font-family:var(--font-mono);text-align:right;">6.7 ms</td><td style="font-family:var(--font-mono);text-align:right;">11.3 ms</td><td style="font-family:var(--font-mono);text-align:right;color:var(--sage);font-weight:700;">1.7&times;</td></tr>
+                <tr><td>1 month</td><td style="font-family:var(--font-mono);text-align:right;">25.4 ms</td><td style="font-family:var(--font-mono);text-align:right;">26.0 ms</td><td style="font-family:var(--font-mono);text-align:right;">1.0&times;</td></tr>
+                <tr><td>3 months</td><td style="font-family:var(--font-mono);text-align:right;">60.7 ms</td><td style="font-family:var(--font-mono);text-align:right;">57.1 ms</td><td style="font-family:var(--font-mono);text-align:right;color:var(--text-muted);">0.9&times;</td></tr>
+            </tbody>
+        </table>
+        <div class="callout callout-win reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+            <span class="callout-text">Zone maps are a <strong>selectivity amplifier</strong>, not a constant speedup. Tight filter on a sorted column &rarr; entire row groups skipped. Broad filter &rarr; everything has to be read anyway. <strong>Sort by what you filter on</strong> is the lesson.</span>
+        </div>
+    </div>
+    <span class="slide-num">27 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 27 · POSTGRES COLUMNAR EXTENSIONS ────── -->
+<section class="slide" id="slide-pg-columnar">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--dusty-blue);border-color:var(--dusty-blue);">Awareness</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Postgres <em>can</em> do columnar</h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">The row/column distinction isn&rsquo;t about the database brand. It&rsquo;s about the storage engine.</p>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li><strong>Citus Columnar</strong> (formerly cstore_fdw): columnar storage engine for Postgres</li>
+            <li><strong>pg_analytics</strong> (ParadeDB): brings DuckDB-style columnar analytics into Postgres</li>
+            <li><strong>pg_duckdb:</strong> run DuckDB queries directly from Postgres</li>
+        </ul>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">&ldquo;Postgres is slow at analytics&rdquo; is imprecise. <strong>Postgres&rsquo;s row-oriented heap storage</strong> is slow at analytics. The query execution model is separate from the storage model, and both matter.</span>
+        </div>
+    </div>
+    <span class="slide-num">28 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 28 · SYNTHESIS: THE FIVE REASONS ────── -->
+<section class="slide" id="slide-synthesis-olap">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--gold);border-color:var(--gold);">Synthesis</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Why same hardware scans billions in OLAP<br>but chokes at 10k TPS in <em>OLTP</em></h2>
+        <div class="two-col reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">Why OLAP is fast</span>
+                <ul class="bullets">
+                    <li><strong>I/O reduction:</strong> read only needed columns (5&ndash;10&times; less)</li>
+                    <li><strong>Compression:</strong> same-type values compress 3&ndash;10&times;</li>
+                    <li><strong>Segment elimination:</strong> zone maps skip irrelevant data</li>
+                    <li><strong>Vectorized execution:</strong> batch processing + SIMD</li>
+                    <li><strong>Late materialization:</strong> defer assembling rows until last moment</li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--terracotta);">Why column stores can&rsquo;t OLTP</span>
+                <ul class="bullets">
+                    <li><strong>Writes touch N segments</strong> per row inserted</li>
+                    <li><strong>No B-tree indexes</strong> for point lookups</li>
+                    <li><strong>Compression blocks</strong> must be decompressed to modify</li>
+                    <li><strong>Batch-append model</strong> adds latency before data is queryable</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">29 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 29 · THE UNIFYING PRINCIPLE ──────────── -->
+<section class="slide" id="slide-unifying">
+    <div class="geo-accent geo-circle" style="top:12%;right:10%;width:clamp(80px,15vw,200px);height:clamp(80px,15vw,200px);border-color:rgba(0,0,0,0.05);"></div>
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--gold);border-color:var(--gold);">The theme</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Every layout is a <em>trade-off</em></h2>
+        <table class="latency-table reveal" style="max-width:750px;margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <thead><tr><th>Lesson</th><th>Layout decision</th><th style="text-align:right;">What it optimizes</th></tr></thead>
+            <tbody>
+                <tr><td>L1</td><td>Row-oriented heap</td><td style="font-family:var(--font-mono);text-align:right;">Fast point writes</td></tr>
+                <tr><td>L2</td><td>Partitioned ranges (shards)</td><td style="font-family:var(--font-mono);text-align:right;">Independent contention domains</td></tr>
+                <tr><td>L3</td><td>Columnar segments</td><td style="font-family:var(--font-mono);text-align:right;">Fast analytical scans</td></tr>
+                <tr style="color:var(--text-muted);"><td>L4&ndash;6</td><td>CDC + Kafka (the bridge)</td><td style="font-family:var(--font-mono);text-align:right;">Move data between layouts</td></tr>
+            </tbody>
+        </table>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text"><strong>No single layout serves both OLTP and OLAP.</strong> The challenge is moving data between them efficiently. That&rsquo;s what the rest of this course solves.</span>
+        </div>
+    </div>
+    <span class="slide-num">30 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 30 · LIFT THE CAGE (REVEAL) ─────────── -->
+<section class="slide" id="slide-reveal" style="background:var(--charcoal);">
+    <div class="slide-content" style="align-items:center;text-align:center;justify-content:center;max-width:min(90vw,820px);margin:0 auto;">
+        <div class="reveal label" style="color:rgba(255,255,255,0.4);margin-bottom:clamp(0.5rem,1.5vh,1.2rem);">One more thing&hellip;</div>
+        <h2 class="reveal" style="color:var(--cream);font-size:clamp(1.8rem,4.5vw,3.2rem);">Lift the <em style="color:var(--sage);">cage.</em></h2>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.55);margin-top:clamp(0.6rem,1.2vh,0.9rem);max-width:620px;">Everything you just saw &mdash; DuckDB caged at 4 CPU / 8 GB, same as Postgres. Take the cage off (run native on the host with all your cores and RAM):</p>
+        <div class="code-block reveal" style="margin-top:clamp(0.7rem,1.5vh,1rem);max-width:540px;flex:unset;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">native DuckDB &mdash; no container</span></div>
+            <div class="code-body"><span class="v">$</span> uv run python src/benchmark_queries.py --duck-only</div>
+        </div>
+        <table class="latency-table reveal" style="max-width:600px;margin-top:clamp(0.6rem,1.2vh,1rem);color:rgba(255,255,255,0.8);">
+            <thead><tr style="color:rgba(255,255,255,0.5);"><th></th><th style="text-align:right;">caged</th><th style="text-align:right;">uncaged</th><th style="text-align:right;">vs PG</th></tr></thead>
+            <tbody>
+                <tr style="border-color:rgba(255,255,255,0.1);"><td>Q1 full aggregation</td><td style="font-family:var(--font-mono);text-align:right;">0.096 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--sage);">0.051 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--warm);font-weight:700;">24&times;</td></tr>
+                <tr style="border-color:rgba(255,255,255,0.1);"><td>Q2 filtered aggregation</td><td style="font-family:var(--font-mono);text-align:right;">0.085 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--sage);">0.061 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--warm);font-weight:700;">31&times;</td></tr>
+                <tr style="border-color:rgba(255,255,255,0.1);"><td>Q3 high-card GROUP BY</td><td style="font-family:var(--font-mono);text-align:right;">0.068 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--sage);">0.045 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--warm);font-weight:700;">23&times;</td></tr>
+                <tr style="border-color:rgba(255,255,255,0.1);"><td>Q4 window function</td><td style="font-family:var(--font-mono);text-align:right;">0.175 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--sage);">0.146 s</td><td style="font-family:var(--font-mono);text-align:right;color:var(--warm);font-weight:700;">4&times;</td></tr>
+            </tbody>
+        </table>
+        <p class="subtitle reveal" style="color:rgba(255,255,255,0.55);margin-top:clamp(0.5rem,1vh,0.8rem);max-width:620px;">Uncaging buys another <strong style="color:var(--sage);">~2&times;</strong>. The dominant gap was already <em>architecture</em>, not resources. Postgres uncaged would still lose &mdash; tuple-at-a-time on full row pages can&rsquo;t out-run vectorized columnar scans.</p>
+    </div>
+    <span class="slide-num" style="color:rgba(255,255,255,0.3);">31 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 31 · WHAT'S NEXT ─────────────────────── -->
+<section class="slide" id="slide-next">
+    <div class="geo-accent geo-dot" style="bottom:20%;left:12%;"></div>
+    <div class="slide-content" style="max-width:min(90vw,800px);margin:0 auto;align-items:center;text-align:center;">
+        <div class="reveal label" style="margin-bottom:clamp(1rem,3vh,2.5rem);">Next lesson</div>
+        <div class="big-question reveal" style="text-align:center;">OLTP and OLAP need different engines.<br>How do you <em>bridge</em> them?</div>
+        <div class="hr-editorial reveal" style="margin-top:clamp(1.5rem,3vh,2.5rem);width:min(300px,60vw);"><span>lesson 4</span></div>
+        <p class="subtitle reveal" style="text-align:center;max-width:500px;margin-top:clamp(0.5rem,1vh,0.8rem);">Change Data Capture. The streaming bridge between your OLTP source and your OLAP warehouse.</p>
+    </div>
+    <span class="slide-num">32 / 33</span>
+</section>
+
+
+<!-- ─── SLIDE 31 · TAKE-HOME ──────────────────────── -->
+<section class="slide" id="slide-takehome">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--warm);border-color:var(--warm);">Take-home</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Annotated query plan <em>analysis</em></h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">For each of the 4 benchmark queries, deliver:</p>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li>Postgres <code>EXPLAIN ANALYZE</code> output with annotations</li>
+            <li>DuckDB <code>EXPLAIN ANALYZE</code> output with annotations</li>
+            <li>Per-query explanation: <strong>which specific optimizations</strong> account for the gap (bytes read, rows scanned vs. skipped, operator timings)</li>
+            <li>Storage size comparison with compression scheme identification</li>
+        </ul>
+        <div class="callout callout-friction reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon">&#9888;</span>
+            <span class="callout-text">Your report must <strong>not</strong> contain the phrase &ldquo;DuckDB is faster because it&rsquo;s a column store.&rdquo; That&rsquo;s the conclusion, not the explanation. Cite specific numbers from your EXPLAIN output.</span>
+        </div>
+        <div class="callout callout-win reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+            <span class="callout-text">You may use opencode to help write queries and interpret plans. But if the AI gives a number, <strong>verify it against the actual output.</strong></span>
+        </div>
+    </div>
+    <span class="slide-num">33 / 33</span>
+</section>
+
+
+<!-- ─── ANNEX · SETUP ─────────────────────────────── -->
+<section class="slide" id="slide-annex-setup">
+    <div class="slide-content" style="max-width:min(90vw,950px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--dusty-blue);border-color:var(--dusty-blue);">Annex</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Environment <em>setup</em></h2>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.5rem,1vh,0.8rem);">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">shell</span></div>
+            <div class="code-body"><span class="c"># 1. OrbStack or Docker Desktop running</span>
+<span class="v">$</span> open -a OrbStack    <span class="c"># or your runtime of choice</span>
+
+<span class="c"># 2. Clone + cd into the lesson</span>
+<span class="v">$</span> cd src-lesson3
+
+<span class="c"># 3. Download Q1 2025 (~11M rows)</span>
+<span class="v">$</span> ./scripts/download_data.sh
+
+<span class="c"># 4. Bring up Postgres + CRDB + DuckDB containers</span>
+<span class="v">$</span> docker compose up -d
+
+<span class="c"># 5. Load Postgres (streams via DuckDB postgres extension)</span>
+<span class="v">$</span> ./bench python src/load_postgres.py
+
+<span class="c"># 6. Run the benchmark</span>
+<span class="v">$</span> ./bench python src/benchmark_queries.py</div>
+        </div>
+        <div class="two-col reveal" style="margin-top:clamp(0.5rem,1vh,0.8rem);flex:unset;">
+            <div class="col">
+                <span class="col-label" style="color:var(--dusty-blue);">Postgres container</span>
+                <ul class="bullets">
+                    <li>4 CPU, 8 GB RAM (cgroup cap)</li>
+                    <li>Port: 5432 (host) &mdash; <code>postgres:5432</code> on docker net</li>
+                    <li><code>shared_buffers = 2GB</code>, <code>work_mem = 256MB</code></li>
+                </ul>
+            </div>
+            <div class="col">
+                <span class="col-label" style="color:var(--sage);">DuckDB container</span>
+                <ul class="bullets">
+                    <li>Same cap: 4 CPU, 8 GB RAM</li>
+                    <li>Reads Parquet directly &mdash; no loading step</li>
+                    <li><code>./bench</code> wrapper = <code>docker compose exec duckdb</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <span class="slide-num">Annex</span>
+</section>
+
+
+<!-- ─── ANNEX · DATASET ──────────────────────────── -->
+<section class="slide" id="slide-annex-data">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--dusty-blue);border-color:var(--dusty-blue);">Annex</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">NYC Taxi <em>dataset</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li><strong>Source:</strong> NYC Taxi &amp; Limousine Commission (cloudfront.net)</li>
+            <li><strong>Workshop default:</strong> Q1 2025 (3 monthly Parquet files) &rarr; <strong>~11M rows</strong></li>
+            <li><strong>Scale ladder:</strong> 11M (default) &middot; 128M (<code>./scripts/download_data.sh stretch</code>) &middot; 1B (<code>./scripts/download_data_1B.sh</code>, full 2009&ndash;2025 archive)</li>
+            <li><strong>Columns:</strong> 20 in the 2025 superset (schema drifts across years &mdash; loader uses DuckDB <code>union_by_name</code> to absorb it)</li>
+            <li><strong>Why Parquet?</strong> Already columnar on disk. DuckDB reads with zero loading. Postgres requires COPY import &mdash; itself instructive: ~20 s to load what DuckDB queries instantly.</li>
+        </ul>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:560px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">Postgres table DDL</span></div>
+            <div class="code-body"><span class="k">CREATE TABLE</span> trips (
+    vendor_id <span class="n">INT</span>,
+    pickup_datetime <span class="n">TIMESTAMP</span>,
+    dropoff_datetime <span class="n">TIMESTAMP</span>,
+    passenger_count <span class="n">INT</span>,
+    trip_distance <span class="n">NUMERIC</span>(<span class="g">10</span>,<span class="g">2</span>),
+    fare_amount <span class="n">NUMERIC</span>(<span class="g">10</span>,<span class="g">2</span>),
+    tip_amount <span class="n">NUMERIC</span>(<span class="g">10</span>,<span class="g">2</span>),
+    total_amount <span class="n">NUMERIC</span>(<span class="g">10</span>,<span class="g">2</span>),
+    <span class="c">-- ... 9 more columns</span>
+);</div>
+        </div>
+    </div>
+    <span class="slide-num">Annex</span>
+</section>
+
+
+<!-- ─── ANNEX · OPENCODE TIPS ─────────────────────── -->
+<section class="slide" id="slide-annex-opencode">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--dusty-blue);border-color:var(--dusty-blue);">Annex</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">opencode <em>tips</em></h2>
+        <ul class="bullets reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">
+            <li><strong>Context matters:</strong> launch from the project root so it sees your docker-compose, scripts, and data files</li>
+            <li><strong>Be specific:</strong> &ldquo;Run Query 2 in DuckDB and show the EXPLAIN ANALYZE&rdquo; &gt; &ldquo;analyze the query&rdquo;</li>
+            <li><strong>Iterate:</strong> &ldquo;Now run the same query on trips_shuffled and compare row groups scanned&rdquo;</li>
+            <li><strong>Verify:</strong> if the AI says &ldquo;8 row groups skipped,&rdquo; check the actual plan output. AI hallucinates numbers.</li>
+            <li><strong>Save work:</strong> copy interesting outputs to your report as you go. Don&rsquo;t reconstruct later.</li>
+        </ul>
+        <div class="callout callout-insight reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dusty-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></span>
+            <span class="callout-text">opencode is a <strong>productivity tool</strong>, not a thinking tool. It helps you run experiments faster. The analysis and judgment are yours.</span>
+        </div>
+    </div>
+    <span class="slide-num">Annex</span>
+</section>
+
+
+<!-- ─── ANNEX · DuckDB IN DOCKER (FAIR BENCHMARK) ──── -->
+<section class="slide" id="slide-annex-docker">
+    <div class="slide-content" style="max-width:min(90vw,850px);margin:0 auto;">
+        <div class="section-marker reveal" style="color:var(--dusty-blue);border-color:var(--dusty-blue);">Annex</div>
+        <h2 class="reveal" style="margin-top:clamp(0.5rem,1.2vh,0.9rem);">Fair benchmark: <em>containerized DuckDB</em></h2>
+        <p class="subtitle reveal" style="margin-top:clamp(0.3rem,0.6vh,0.45rem);">Both engines run with identical cgroup caps. Same disk, same socket, same kernel.</p>
+        <div class="code-block reveal" style="flex:unset;margin-top:clamp(0.4rem,0.8vh,0.6rem);max-width:600px;">
+            <div class="code-header"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="code-label">docker-compose.yml (excerpt)</span></div>
+            <div class="code-body"><span class="v">services</span>:
+  <span class="v">postgres</span>:
+    <span class="k">image</span>: postgres:16
+    <span class="k">deploy</span>:
+      <span class="k">resources</span>:
+        <span class="k">limits</span>: { <span class="k">cpus</span>: <span class="s">'4'</span>, <span class="k">memory</span>: <span class="s">8g</span> }
+
+  <span class="v">duckdb</span>:
+    <span class="k">build</span>: .              <span class="c"># python:3.13-slim + duckdb + psycopg + asyncpg</span>
+    <span class="k">volumes</span>: [ <span class="s">'./:/workspace'</span> ]
+    <span class="k">environment</span>: { <span class="k">PG_HOST</span>: postgres, <span class="k">CRDB_HOST</span>: crdb-1 }
+    <span class="k">deploy</span>:
+      <span class="k">resources</span>:
+        <span class="k">limits</span>: { <span class="k">cpus</span>: <span class="s">'4'</span>, <span class="k">memory</span>: <span class="s">8g</span> }
+    <span class="k">command</span>: sleep infinity   <span class="c"># keep alive for `docker compose exec`</span></div>
+        </div>
+        <div class="callout callout-win reveal" style="margin-top:clamp(0.4rem,0.8vh,0.6rem);">
+            <span class="callout-icon" style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--sage);">&#10003;</span>
+            <span class="callout-text">DuckDB is normally a Python library, not a container. We cage it here <em>only</em> to make the head-to-head clean. The &ldquo;lift the cage&rdquo; slide showed the uncaged numbers &mdash; ~2&times; faster, still column-store-fast either way.</span>
+        </div>
+    </div>
+    <span class="slide-num">Annex</span>
+</section>
+
+
+<script>
+    class SlidePresentation {
+        constructor() {
+            this.slides = [...document.querySelectorAll('.slide')];
+            this.total = this.slides.length;
+            this.current = 0;
+            this.progressBar = document.getElementById('progressBar');
+            this.navDotsContainer = document.getElementById('navDots');
+            this.buildNavDots();
+            this.setupIntersectionObserver();
+            this.setupKeyboard();
+            this.setupWheel();
+            this.setupTouch();
+        }
+
+        buildNavDots() {
+            this.slides.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+                dot.addEventListener('click', () => this.goTo(i));
+                this.navDotsContainer.appendChild(dot);
+            });
+        }
+
+        setupIntersectionObserver() {
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        this.current = this.slides.indexOf(entry.target);
+                        this.updateUI();
+                    }
+                });
+            }, { threshold: 0.55 });
+            this.slides.forEach(s => obs.observe(s));
+        }
+
+        updateUI() {
+            const pct = this.total > 1 ? (this.current / (this.total - 1)) * 100 : 0;
+            this.progressBar.style.width = pct + '%';
+            document.querySelectorAll('.nav-dot').forEach((d, i) => {
+                d.classList.toggle('active', i === this.current);
+            });
+        }
+
+        goTo(index) {
+            const idx = Math.max(0, Math.min(this.total - 1, index));
+            this.slides[idx].scrollIntoView({ behavior: 'smooth' });
+        }
+
+        setupKeyboard() {
+            document.addEventListener('keydown', e => {
+                if (['ArrowDown','ArrowRight','Space','PageDown'].includes(e.code)) {
+                    e.preventDefault(); this.goTo(this.current + 1);
+                } else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.code)) {
+                    e.preventDefault(); this.goTo(this.current - 1);
+                } else if (e.code === 'Home') { e.preventDefault(); this.goTo(0); }
+                else if (e.code === 'End') { e.preventDefault(); this.goTo(this.total - 1); }
+            });
+        }
+
+        setupWheel() {
+            let lastWheel = 0;
+            document.addEventListener('wheel', e => {
+                e.preventDefault();
+                const now = Date.now();
+                if (now - lastWheel < 700) return;
+                lastWheel = now;
+                if (e.deltaY > 0) this.goTo(this.current + 1);
+                else this.goTo(this.current - 1);
+            }, { passive: false });
+        }
+
+        setupTouch() {
+            let startY = 0;
+            document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+            document.addEventListener('touchend', e => {
+                const diff = startY - e.changedTouches[0].clientY;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) this.goTo(this.current + 1);
+                    else this.goTo(this.current - 1);
+                }
+            }, { passive: true });
+        }
+    }
+
+    new SlidePresentation();
+</script>
+</body>
+</html>

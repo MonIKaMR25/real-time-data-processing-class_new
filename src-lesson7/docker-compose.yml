@@ -1,0 +1,58 @@
+# Lesson 7 — a SINGLE-broker Apache Kafka in KRaft mode (no ZooKeeper).
+#
+# Why one broker, when Lesson 6 ran three?
+#   L6 was about durability: replication.factor=3, min.insync.replicas=2, ISR.
+#   L7 is about COMPUTE — windows, watermarks, event time. Replication is
+#   irrelevant to any of it, and a second JVM here just steals RAM from Spark's.
+#   So: one broker, RF=1, min.insync.replicas=1. The deck's whole setup ethos is
+#   "One pip install. One JVM. No cluster." — this honours it on the Kafka side.
+#
+# It still advertises EXTERNAL on localhost:19092, exactly like L6's kafka-1, so
+# every command on the slides (bootstrap localhost:19092) works unchanged. If you
+# already have the L6 cluster up you can skip this entirely and point the scripts
+# at that broker — they share the port. The two CANNOT run at once (port clash).
+#
+# The Spark side runs on your HOST (uv run python …, local[*]) — it is NOT in
+# this compose. Only Kafka lives here.
+
+services:
+  kafka:
+    image: apache/kafka:3.9.1
+    container_name: kafka-l7
+    ports: ["19092:19092"]
+    environment:
+      # combined broker+controller — fine for a single-node lab
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-l7:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      # LISTENERS — the #1 Docker-Kafka gotcha (see L6). PLAINTEXT is the in-network
+      # name; EXTERNAL is what your laptop dials. A client bootstraps anywhere, then
+      # the broker replies "talk to me at <advertised>" — unreachable address = you
+      # connect, then mysteriously time out.
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-l7:9092,EXTERNAL://localhost:19092
+      # single broker → everything replication-related is 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      # don't make the first consumer wait to get partitions
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # leave the laptop's RAM for Spark's JVM
+      KAFKA_HEAP_OPTS: -Xmx512m -Xms256m
+      # all nodes must agree; a STALE VOLUME with a different id is why
+      # "docker compose down -v" fixes a broker that won't start
+      CLUSTER_ID: L7LessonKafkaCluster1
+    volumes: ["kafka-l7-data:/var/lib/kafka/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+volumes:
+  kafka-l7-data:
